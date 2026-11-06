@@ -77,3 +77,94 @@ lặp lại ngoài phạm vi 1 component không — nếu không, viết inline.
   toàn bộ folder `design/`**; các rule trong tài liệu này không áp dụng cho nó.
 - Khi làm FE mới, chỉ lấy `design/` làm **nguồn tham chiếu** về bố cục, token,
   hình ảnh; code FE thật phải viết lại theo cấu trúc `src/` và quy tắc §1.
+
+---
+
+## 4. Chuyển đổi HTML/CSS/JS tĩnh → React/Next.js (BẮT BUỘC)
+
+> Nguyên tắc: khi chuyển code từ `design/` (HTML tĩnh) sang React của Next.js,
+> **luôn dùng cách viết hiện đại của React**. CẤM mang theo các pattern JS/CSS/HTML
+> thuần mà React đã có sẵn cơ chế thay thế tốt hơn.
+
+### 4.1. Quy tắc biến đổi bắt buộc
+
+| HTML/CSS/JS thuần (cấm)                        | React/Next.js hiện đại (dùng)                              |
+| ---------------------------------------------- | ---------------------------------------------------------- |
+| `document.querySelector` + gán `.value`, `.style`, `.textContent` | State (`useState`/`useReducer`) + render từ state |
+| `addEventListener('click', ...)`               | Prop `onClick`, `onChange`, `onSubmit`… ngay trên JSX       |
+| `element.classList.toggle/add/remove`          | `className` có điều kiện (template literal hoặc mảng join)   |
+| Ẩn/hiện bằng `style.display = 'none'`          | Render có điều kiện (`{cond && ...}` / ternary trong JSX)   |
+| Form đọc giá trị bằng `FormData` / `.value`    | Controlled component: state + `value` + `onChange`          |
+| Copy-paste khối HTML lặp lại                   | `.map()` + `key` duy nhất                                   |
+| Biến đếm `i++` trong handler / biến cục bộ ngoài render | State React (`setX(prev => prev + 1)`)             |
+| `<script>` inline, `onclick="..."` trong HTML  | Handler React; không để lại thẻ `<script>` nào từ `design/` |
+| `<a href>` điều hướng nội bộ                   | `<Link href>` từ `next/link`                                |
+| `<img src>`                                    | `<Image>` từ `next/image` (khi ảnh đã nằm trong `public/`)  |
+| setInterval/IntersectionObserver gắn trần      | `useEffect` + cleanup (`return () => ...`)                  |
+
+### 4.2. Chuẩn JSX khi viết lại
+
+- Thuộc tính đổi theo chuẩn React: `class` → `className`, `for` → `htmlFor`,
+  các attribute kebab-case (`stroke-width`, `viewBox`…) → camelCase.
+- Thẻ rỗng phải self-closing (`<br />`, `<input />`, `<img />`).
+- Icon SVG → chuyển thành component TSX (`src/components/ui/`), nhận `className`
+  qua prop thay vì copy nguyên khối SVG nhiều lần.
+
+### 4.3. Khi nào mới được chạm DOM trực tiếp
+
+- Chỉ khi React không có cơ chế tương đương (ví dụ: đo kích thước, tích hợp thư
+  viện bên thứ ba cần node DOM, focus/scroll phức tạp).
+- Khi đó **chỉ dùng `useRef`** + `useEffect`, không bao giờ `querySelector` rải
+  khắp file, và phải dọn dẹp (cleanup) đúng cách trong `useEffect`.
+
+### 4.4. Ví dụ minh họa (trước → sau)
+
+**Trước — HTML/JS thuần (CẤM):**
+
+```html
+<div id="count">0</div>
+<button onclick="increment()">+</button>
+<script>
+  let count = 0;
+  function increment() {
+    count++;
+    document.getElementById("count").textContent = count;
+  }
+</script>
+```
+
+**Sau — React/Next.js hiện đại:**
+
+```tsx
+"use client";
+
+import { useState } from "react";
+
+const BASE_BUTTON = "rounded-full border px-3 py-1";
+
+export function Counter() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <div>
+      <span>{count}</span>
+      <button className={BASE_BUTTON} onClick={() => setCount((prev) => prev + 1)}>
+        +
+      </button>
+    </div>
+  );
+}
+```
+
+Điểm cần nhớ: state thay cho biến + DOM, `onClick` thay cho `onclick`/`addEventListener`,
+render từ state thay cho gán `.textContent`, và class gom vào hằng số khi lặp lại.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

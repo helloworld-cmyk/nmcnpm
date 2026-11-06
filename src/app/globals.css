@@ -1,26 +1,42 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@import "../styles/tokens.css";
+@import "../styles/base.css";
+@import "../styles/motion.css";
+@import "../styles/responsive-shared.css";
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-ink: var(--ink);
+  --color-navy-950: var(--navy-950);
+  --color-navy-900: var(--navy-900);
+  --color-navy-800: var(--navy-800);
+  --color-navy-700: var(--navy-700);
+  --color-navy-50: var(--navy-50);
+  --color-surface: var(--surface);
+  --color-app: var(--bg);
+  --color-line: var(--border);
+  --color-line-soft: var(--border-soft);
+  --color-green-700: var(--green-700);
+  --color-green-600: var(--green-600);
+  --color-green-100: var(--green-100);
+  --color-green-50: var(--green-50);
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --ease-swift: var(--ease);
+  --font-heading: var(--font-heading);
+  --font-body: var(--font-body);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+:root {
+  --font-heading:
+    var(--font-be-vietnam), "Be Vietnam Pro", "Segoe UI", system-ui, sans-serif;
+  --font-body:
+    var(--font-noto-sans), "Noto Sans", "Segoe UI", system-ui, sans-serif;
 }
