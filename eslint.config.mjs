@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Thư mục design/ là tài liệu tham chiếu read-only, không thuộc app Next.js.
+    "design/**",
   ]),
 ]);
 

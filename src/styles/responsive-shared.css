@@ -1,0 +1,38 @@
+/* =========================================================
+   Responsive — CHỈ cho thành phần SHARED (container, head-row,
+   section, text-link, field).
+   Style riêng của từng component nằm ngay trong JSX bằng biến
+   thể responsive của Tailwind (max-[...]:).
+   ========================================================= */
+
+@media (max-width: 768px) {
+  :root {
+    --header-h: 70px;
+    --container-gutter: 32px;
+  }
+}
+
+@layer components {
+  @media (max-width: 768px) {
+    .head-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    /* Vùng chạm tối thiểu 44px (WCAG 2.5.5) */
+    .text-link {
+      min-height: 44px;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .section {
+      padding: 56px 0;
+    }
+
+    .section-head {
+      margin-bottom: 30px;
+    }
+  }
+}
