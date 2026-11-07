@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, type FormEvent } from "react";
 import {
   IconArrowRight,
   IconCalendar,
@@ -8,7 +10,9 @@ import {
   IconSwap,
   IconUsers,
 } from "@/components/icons";
-import { useBookingForm } from "../_hooks/use-booking-form";
+import { useBookingFormStore } from "@/global-states/booking-form-store";
+import type { BookingField } from "../_utils/validators";
+import { useTodayISO, useTomorrowISO } from "../_hooks/use-current-dates";
 
 const CITIES = [
   "Hà Nội",
@@ -57,28 +61,80 @@ const fieldInputClass = (invalid: boolean) =>
   `${FIELD_INPUT} ${invalid ? FIELD_INPUT_INVALID : "border-[var(--border)]"}`;
 
 export function BookingForm() {
-  const {
-    formRef,
-    registerField,
-    origin,
-    destination,
-    date,
-    seats,
-    minDate,
-    invalidField,
-    status,
-    loading,
-    swapping,
-    handleOriginChange,
-    handleDestinationChange,
-    handleDateChange,
-    setSeats,
-    swapRoute,
-    handleSubmit,
-  } = useBookingForm();
+  const router = useRouter();
+
+  const origin = useBookingFormStore((state) => state.origin);
+  const destination = useBookingFormStore((state) => state.destination);
+  const storedDate = useBookingFormStore((state) => state.date);
+  const seats = useBookingFormStore((state) => state.seats);
+  const invalidField = useBookingFormStore((state) => state.invalidField);
+  const status = useBookingFormStore((state) => state.status);
+  const loading = useBookingFormStore((state) => state.loading);
+  const swapping = useBookingFormStore((state) => state.swapping);
+  const prefillId = useBookingFormStore((state) => state.prefillId);
+  const setOrigin = useBookingFormStore((state) => state.setOrigin);
+  const setDestination = useBookingFormStore((state) => state.setDestination);
+  const setDate = useBookingFormStore((state) => state.setDate);
+  const setSeats = useBookingFormStore((state) => state.setSeats);
+  const swapRoute = useBookingFormStore((state) => state.swapRoute);
+  const startSearch = useBookingFormStore((state) => state.startSearch);
+
+  const minDate = useTodayISO();
+  const defaultDate = useTomorrowISO();
+  const date = storedDate ?? defaultDate;
+
+  const formRef = useRef<HTMLFormElement>(null);
+  const searchTimer = useRef<number | null>(null);
+  const fieldRefs = useRef<Partial<Record<BookingField, HTMLElement | null>>>(
+    {},
+  );
+
+  const registerField = useCallback((field: BookingField) => {
+    return (element: HTMLElement | null) => {
+      fieldRefs.current[field] = element;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (prefillId === 0) return;
+
+    const form = formRef.current;
+    if (!form) return;
+
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    form.scrollIntoView({
+      behavior: reducedMotion ? "auto" : "smooth",
+      block: "center",
+    });
+  }, [prefillId]);
+
+  useEffect(() => {
+    return () => {
+      if (searchTimer.current) window.clearTimeout(searchTimer.current);
+    };
+  }, []);
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const result = startSearch();
+    if (!result.ok) {
+      fieldRefs.current[result.field]?.focus();
+      return;
+    }
+
+    if (searchTimer.current) window.clearTimeout(searchTimer.current);
+    searchTimer.current = window.setTimeout(() => {
+      router.push(`/ket-qua-tim-chuyen?${result.query}`);
+    }, 950);
+  };
 
   return (
     <form
+      key={prefillId}
+      data-flashing={prefillId > 0 ? "true" : undefined}
       className="relative max-w-[600px] mt-7 p-4 border border-[#e6eef6] rounded-lg bg-white shadow-[0_24px_60px_-28px_rgba(8,20,38,0.35),var(--shadow-xs)] data-[flashing]:animate-[formFlash_1.1s_var(--ease)] max-[640px]:p-3.5"
       id="bookingForm"
       noValidate
@@ -102,7 +158,7 @@ export function BookingForm() {
               required
               value={origin}
               aria-invalid={invalidField === "origin" ? true : undefined}
-              onChange={(event) => handleOriginChange(event.target.value)}
+              onChange={(event) => setOrigin(event.target.value)}
             />
           </div>
         </div>
@@ -141,7 +197,7 @@ export function BookingForm() {
               aria-invalid={
                 invalidField === "destination" ? true : undefined
               }
-              onChange={(event) => handleDestinationChange(event.target.value)}
+              onChange={(event) => setDestination(event.target.value)}
             />
           </div>
         </div>
@@ -170,7 +226,7 @@ export function BookingForm() {
               min={minDate || undefined}
               value={date}
               aria-invalid={invalidField === "date" ? true : undefined}
-              onChange={(event) => handleDateChange(event.target.value)}
+              onChange={(event) => setDate(event.target.value)}
             />
           </div>
         </div>

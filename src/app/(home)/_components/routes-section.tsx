@@ -7,7 +7,7 @@ import {
   IconUsers,
 } from "@/components/icons";
 import { Reveal } from "@/components/ui/reveal";
-import { requestBookingPrefill } from "../_utils/booking-events";
+import { useBookingFormStore } from "@/global-states/booking-form-store";
 
 type RouteCard = {
   region: string;
@@ -93,6 +93,8 @@ const ROUTES: RouteCard[] = [
 ];
 
 export function RoutesSection() {
+  const requestPrefill = useBookingFormStore((state) => state.requestPrefill);
+
   return (
     <section className="section" id="tuyen-duong">
       <div className="container">
@@ -117,7 +119,7 @@ export function RoutesSection() {
 
         <div className="grid grid-cols-3 gap-[18px] max-[1024px]:grid-cols-2 max-[768px]:gap-3.5 max-[640px]:grid-cols-1">
           {ROUTES.map((route) => (
-            <Reveal as="button" type="button" key={`${route.from}-${route.to}`} delay={route.delay} className="group flex flex-col gap-4 w-full p-5 border border-line rounded-md bg-white shadow-xs text-left cursor-pointer transition-[transform,box-shadow,border-color] duration-[260ms] ease-swift hover:-translate-y-1 hover:border-sky-200 hover:shadow-md active:translate-y-px max-[768px]:p-[18px]" onClick={() => requestBookingPrefill({ from: route.from, to: route.to })}>
+            <Reveal as="button" type="button" key={`${route.from}-${route.to}`} delay={route.delay} className="group flex flex-col gap-4 w-full p-5 border border-line rounded-md bg-white shadow-xs text-left cursor-pointer transition-[transform,box-shadow,border-color] duration-[260ms] ease-swift hover:-translate-y-1 hover:border-sky-200 hover:shadow-md active:translate-y-px max-[768px]:p-[18px]" onClick={() => requestPrefill({ from: route.from, to: route.to })}>
               <div className="flex items-center justify-between gap-2.5 min-h-[22px]">
                 <span className="text-[10.5px] font-bold tracking-[0.12em] uppercase text-slate-400">
                   {route.region}
