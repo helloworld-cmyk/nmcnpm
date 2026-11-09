@@ -88,6 +88,39 @@
   }
 }
 
+/* Vòng ping quanh chấm điểm đầu/cuối trên vé hành trình (màn chi tiết chuyến) */
+@keyframes ticketDotPing {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.7);
+  }
+
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+
+/* Nhấp nháy vòng xanh quanh biểu tượng thành công (màn đặt chỗ thành công) */
+@keyframes successPulse {
+  0% {
+    box-shadow:
+      inset 0 0 0 1px var(--green-100),
+      0 0 0 0 rgba(34, 197, 94, 0.45);
+  }
+  70% {
+    box-shadow:
+      inset 0 0 0 1px var(--green-100),
+      0 0 0 8px rgba(34, 197, 94, 0);
+  }
+  100% {
+    box-shadow:
+      inset 0 0 0 1px var(--green-100),
+      0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
 /* Reduced motion */
 
 @media (prefers-reduced-motion: reduce) {

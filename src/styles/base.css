@@ -2,6 +2,7 @@
 
 @utility container {
   width: min(100% - var(--container-gutter), var(--container));
+  max-width: var(--container);
   margin-inline: auto;
 }
 
@@ -13,7 +14,6 @@
 }
 
 html {
-  scroll-behavior: smooth;
   scroll-padding-top: calc(var(--header-h) + 20px);
   -webkit-text-size-adjust: 100%;
 }
@@ -140,6 +140,18 @@ select {
 
 .btn-primary:active {
   transform: translateY(0);
+}
+
+.btn-ghost {
+  background: #fff;
+  border: 1px solid var(--border);
+  color: var(--ink);
+}
+
+.btn-ghost:hover {
+  background: var(--sky-50);
+  border-color: var(--sky-300);
+  color: var(--sky-700);
 }
 
 .btn-sm {
