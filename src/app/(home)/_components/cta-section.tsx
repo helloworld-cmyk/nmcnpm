@@ -6,7 +6,7 @@ export function CtaSection() {
     <section className="section">
       <div className="container">
         <Reveal className="relative flex items-center justify-between flex-wrap gap-10 overflow-hidden px-[clamp(32px,5vw,56px)] py-[clamp(32px,5vw,56px)] border border-[#cfe9fa] rounded-xl bg-[linear-gradient(120deg,#eaf6ff_0%,#f4faff_48%,#e6f4fe_100%)] before:content-[''] before:absolute before:-top-[90px] before:-right-20 before:size-[340px] before:border before:border-dashed before:border-sky-200 before:rounded-full before:opacity-80 before:pointer-events-none after:content-[''] after:absolute after:right-10 after:-bottom-[100px] after:size-[240px] after:border after:border-dashed after:border-sky-200 after:rounded-full after:opacity-60 after:pointer-events-none max-[900px]:flex-col max-[900px]:items-start max-[640px]:px-[22px] max-[640px]:py-7 max-[640px]:rounded-[22px]">
-          <div className="relative z-[1] max-w-[520px]">
+          <div className="relative z-[1] min-w-0 flex-1 max-w-[520px]">
             <span className="section-eyebrow">Sẵn sàng lên đường?</span>
             <h2 className="mt-3 text-[clamp(1.8rem,3vw,2.4rem)] font-extrabold leading-[1.12] tracking-[-0.03em] text-ink [text-wrap:balance]">
               Chuyến đi tiếp theo,

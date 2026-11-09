@@ -159,6 +159,136 @@ export function Counter() {
 Điểm cần nhớ: state thay cho biến + DOM, `onClick` thay cho `onclick`/`addEventListener`,
 render từ state thay cho gán `.textContent`, và class gom vào hằng số khi lặp lại.
 
+---
+
+## 5. Quản lý state — Zustand thay cho Provider (BẮT BUỘC)
+
+> Nguyên tắc: **state dùng chung phải nằm trong Zustand store**, đặt trong
+> `src/global-states/`. CẤM tạo `createContext` / Context Provider / external
+> store tự viết (`useSyncExternalStore` thủ công) để chia sẻ state.
+
+### 5.1. Khi nào dùng Zustand store, khi nào dùng state local
+
+- State được **chia sẻ qua nhiều component/không cùng cây cha con trực tiếp**
+  (session user, form đặt xe, giỏ/đặt chỗ…) → Zustand store trong
+  `src/global-states/`.
+- State **chỉ dùng trong 1 component** (open/close, hover, input riêng lẻ…) →
+  `useState` ngay trong component, KHÔNG đưa vào store.
+
+### 5.2. Quy ước viết store
+
+- 1 store/1 file: `src/global-states/<domain>-store.ts`, đặt tên hook
+  `use<Domain>Store` (tham khảo `session-store.ts`, `booking-form-store.ts`).
+- Store chứa **state + actions**; action tự xử lý logic (validate, đổi giá trị,
+  clear lỗi…) và component chỉ gọi, không duplicate logic ngoài store.
+- Component đọc state bằng **selector từng field**
+  (`useBookingFormStore((s) => s.origin)`), không lấy nguyên object store để
+  tránh re-render thừa.
+- **DOM ref (`useRef` element) KHÔNG đưa vào store** — ref thuộc về component
+  render nó; store chỉ cần biết kết quả qua action (ví dụ focus lỗi do
+  component tự focus sau khi `startSearch()` trả về field lỗi).
+- Logic cần `useRouter`/navigation đặt trong component (hoặc hook của page),
+  store trả dữ liệu (vd. query string) chứ không tự điều hướng.
+
+### 5.3. Zustand + SSR/localStorage
+
+- Giá trị khởi tạo của store phải **SSR-safe** (mặc định `null`/giá trị tĩnh),
+  KHÔNG đọc `window`/`localStorage` lúc tạo store → tránh hydration mismatch.
+- Đồng bộ từ localStorage qua action `hydrate()` gọi trong `useEffect` ở
+  component consumer; KHÔNG dùng middleware `persist` trừ khi có yêu cầu riêng.
+- Mọi truy cập `window` trong store phải bọc `typeof window === "undefined"`
+  hoặc `try/catch` (chế độ riêng tư).
+
+## 6. Cấu trúc thư mục dự án
+
+```
+nmcnpm/
+├── AGENTS.MD                  # Tài liệu quy tắc này
+├── README.md
+├── package.json / package-lock.json
+├── tsconfig.json / tsconfig.tsbuildinfo
+├── next.config.ts
+├── next-env.d.ts
+├── eslint.config.mjs
+│
+├── design/                    # ⚠️ THIẾT KẾ TĨNH THAM KHẢO — KHÔNG build/import (xem §3)
+│   ├── DESIGN_RULES.MD        #   Quy tắc thiết kế gốc
+│   ├── build.js               #   Script build bản tĩnh (không liên quan src/)
+│   ├── khach-hang/            #   FE khách hàng: index, ket-qua-tim-chuyen,
+│   │   │                      #     chi-tiet-chuyen, chuyen-cua-toi, dat-cho-thanh-cong,
+│   │   │                      #     dang-nhap, dang-ky, ho-so (mỗi screen 1 file .html)
+│   │   ├── components/  css/  js/
+│   │   └── screens/<ten-screen>/   # css/ + js/ + partials/ riêng từng screen
+│   ├── admin/                 #   FE quản trị: tong-quan, admin-chuyen, admin-don-dat,
+│   │   │                      #     admin-tai-xe, admin-xe, admin-tuyen-duong,
+│   │   │                      #     admin-doanh-thu, admin-khach-hang, dang-nhap
+│   │   ├── components/  css/  js/
+│   │   └── screens/<ten-screen>/   # css/ + js/ + partials/
+│   ├── tai-xe/                #   FE tài xế: tai-xe-tong-quan, tai-xe-dieu-hanh,
+│   │   │                      #     tai-xe-chi-tiet-chuyen, tai-xe-xe, tai-xe-ho-so, dang-nhap
+│   │   ├── components/  css/  js/
+│   │   └── screens/<ten-screen>/   # css/ + js/ + partials/
+│   └── shared/                #   Dùng chung 3 FE: 404.html (screens/loi),
+│                              #     assets/, components/, css/, js/
+│
+├── public/
+│   ├── assets/                #   logo.svg, favicon.svg, image.png
+│   └── *.svg                  #   Icon mặc định Next.js (file, globe, next, vercel, window)
+│
+├── temp/                      #   File tạm — chỉ xóa TỪNG FILE, giữ folder (xem §2.1)
+│
+└── src/                       # ✅ SOURCE CHÍNH (Next.js App Router + Tailwind v4)
+    ├── api/                   #   API client/helper (đang trống — đặt khi có backend)
+    ├── global-states/         #   Zustand stores — state + actions (xem §5)
+    │   │                      #     session, booking-form, booking-detail, trips,
+    │   │                      #     search-filters, login, register, profile
+    │   └── <domain>-store.ts
+    ├── styles/                #   CSS DÙNG CHUNG — theo đúng phạm vi bảng §1.4
+    │   ├── tokens.css         #     Design tokens (--*)
+    │   ├── base.css           #     Reset + class dùng chéo
+    │   ├── motion.css         #     .reveal/.is-in + @keyframes
+    │   └── responsive-shared.css
+    ├── components/
+    │   ├── ui/                #   brand, reveal, site-header, site-footer
+    │   ├── layout/            #   site-shell
+    │   ├── icons/             #   Icon SVG dạng TSX (icon-base + index.ts export chung)
+    │   ├── auth/              #   Khối dùng chung màn đăng nhập/đăng ký
+    │   │                      #     (auth-screen, auth-card, auth-field…)
+    │   └── art/               #   Hình minh họa dạng TSX (art-base, art-driver…)
+    └── app/
+        ├── layout.tsx         #   Root layout
+        ├── globals.css        #   Import styles/ + mapping token sang @theme
+        ├── favicon.ico
+        ├── (home)/            #   Trang chủ (route group, không đổi URL)
+        │   ├── page.tsx
+        │   ├── _components/   #     Section riêng trang chủ (hero, booking-form…)
+        │   ├── _hooks/        #     use-current-dates, use-faq
+        │   └── _utils/        #     validators
+        ├── chi-tiet-chuyen/   #   page.tsx + _components/ (seat-map, booking-panel…)
+        ├── chuyen-cua-toi/    #   page.tsx + _components/ + _data/
+        ├── ket-qua-tim-chuyen/#   page.tsx + _components/ + _data/ + _utils/
+        ├── dat-cho-thanh-cong/#   page.tsx + _components/
+        ├── ho-so/             #   page.tsx + _components/
+        ├── dang-nhap/         #   page.tsx + _components/ + _hooks/ + _utils/
+        └── dang-ky/           #   page.tsx + _components/ + _hooks/ + _utils/
+```
+
+### 6.1. Quy ước theo cấu trúc
+
+- Folder route `src/app/<ten-route>/` chứa `page.tsx`; code riêng của route đặt
+  trong folder con bắt đầu bằng `_` (Next.js bỏ qua khi định tuyến):
+  `_components/` (component riêng), `_hooks/` (hook riêng), `_utils/`
+  (hàm tiện ích riêng), `_data/` (dữ liệu mock/thumbnail).
+- Route mới → tạo folder cùng cấp trong `src/app/`, lấy màn tương ứng trong
+  `design/` làm tham chiếu bố cục.
+- Component dùng chung ≥2 route → `src/components/` (phân vai theo folder §6);
+  chỉ dùng 1 route → `src/app/<route>/_components/`.
+- Store mới → `src/global-states/<domain>-store.ts` theo §5.
+- Icon mới → thêm file TSX trong `src/components/icons/` và export qua
+  `index.ts`; không copy SVG trực tiếp vào page/component.
+
+---
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 ## This is NOT the Next.js you know

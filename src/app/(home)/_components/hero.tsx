@@ -80,8 +80,10 @@ export function Hero() {
       />
       <div className="container grid grid-cols-[1.05fr_0.95fr] gap-[clamp(32px,5vw,72px)] items-center max-[1080px]:gap-10 max-[900px]:grid-cols-1">
         <div className="max-w-[620px] max-[900px]:max-w-[640px]">
-          <h1 className="mt-0 text-[clamp(2.35rem,5.1vw,4rem)] font-extrabold leading-[1.05] tracking-[-0.038em] text-navy-800 [text-wrap:balance] max-[640px]:text-[clamp(2.15rem,9.6vw,2.9rem)]">
-            Ghép chuyến thông minh,
+          <h1 className="mt-0 text-[clamp(2.1rem,4.2vw,3.4rem)] font-extrabold leading-[1.05] tracking-[-0.038em] text-navy-800 [text-wrap:balance] max-[640px]:text-[clamp(2rem,8.4vw,2.6rem)]">
+            Ghép chuyến
+            <br />
+            thông minh,
             <br />
             <span className="text-sky-700 bg-[linear-gradient(100deg,var(--sky-700),var(--sky-600))] bg-clip-text text-transparent">
               đi tỉnh nhẹ nhàng.
