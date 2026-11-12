@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, type FormEvent } from "react";
+import { useAreas } from "@/api/area/tanstack/use-areas";
 import {
   IconArrowRight,
   IconCalendar,
@@ -11,29 +10,9 @@ import {
   IconUsers,
 } from "@/components/icons";
 import { useBookingFormStore } from "@/global-states/booking-form-store";
-import type { BookingField } from "../_utils/validators";
+import { useBookingFormFields } from "../_hooks/use-booking-form-fields";
+import { useBookingFormSubmit } from "../_hooks/use-booking-form-submit";
 import { useTodayISO, useTomorrowISO } from "../_hooks/use-current-dates";
-
-const CITIES = [
-  "Hà Nội",
-  "Hải Phòng",
-  "Thanh Hóa",
-  "Nam Định",
-  "Thái Nguyên",
-  "Ninh Bình",
-  "Quảng Ninh",
-  "Vinh",
-  "Huế",
-  "Đà Nẵng",
-  "Quy Nhơn",
-  "Nha Trang",
-  "Đà Lạt",
-  "TP. Hồ Chí Minh",
-  "Vũng Tàu",
-  "Cần Thơ",
-  "Bình Dương",
-  "Đồng Nai",
-];
 
 const STATUS_CLASSES = {
   success: "border-[#a7f3d0] bg-[#ecfdf5] text-[#065f46]",
@@ -61,15 +40,12 @@ const fieldInputClass = (invalid: boolean) =>
   `${FIELD_INPUT} ${invalid ? FIELD_INPUT_INVALID : "border-[var(--border)]"}`;
 
 export function BookingForm() {
-  const router = useRouter();
-
   const origin = useBookingFormStore((state) => state.origin);
   const destination = useBookingFormStore((state) => state.destination);
   const storedDate = useBookingFormStore((state) => state.date);
   const seats = useBookingFormStore((state) => state.seats);
   const invalidField = useBookingFormStore((state) => state.invalidField);
   const status = useBookingFormStore((state) => state.status);
-  const loading = useBookingFormStore((state) => state.loading);
   const swapping = useBookingFormStore((state) => state.swapping);
   const prefillId = useBookingFormStore((state) => state.prefillId);
   const setOrigin = useBookingFormStore((state) => state.setOrigin);
@@ -77,59 +53,16 @@ export function BookingForm() {
   const setDate = useBookingFormStore((state) => state.setDate);
   const setSeats = useBookingFormStore((state) => state.setSeats);
   const swapRoute = useBookingFormStore((state) => state.swapRoute);
-  const startSearch = useBookingFormStore((state) => state.startSearch);
+
+  /* Danh mục địa điểm từ API cho gợi ý điểm đi/đến */
+  const { data: areas } = useAreas();
 
   const minDate = useTodayISO();
   const defaultDate = useTomorrowISO();
   const date = storedDate ?? defaultDate;
 
-  const formRef = useRef<HTMLFormElement>(null);
-  const searchTimer = useRef<number | null>(null);
-  const fieldRefs = useRef<Partial<Record<BookingField, HTMLElement | null>>>(
-    {},
-  );
-
-  const registerField = useCallback((field: BookingField) => {
-    return (element: HTMLElement | null) => {
-      fieldRefs.current[field] = element;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (prefillId === 0) return;
-
-    const form = formRef.current;
-    if (!form) return;
-
-    const reducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    form.scrollIntoView({
-      behavior: reducedMotion ? "auto" : "smooth",
-      block: "center",
-    });
-  }, [prefillId]);
-
-  useEffect(() => {
-    return () => {
-      if (searchTimer.current) window.clearTimeout(searchTimer.current);
-    };
-  }, []);
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const result = startSearch();
-    if (!result.ok) {
-      fieldRefs.current[result.field]?.focus();
-      return;
-    }
-
-    if (searchTimer.current) window.clearTimeout(searchTimer.current);
-    searchTimer.current = window.setTimeout(() => {
-      router.push(`/ket-qua-tim-chuyen?${result.query}`);
-    }, 950);
-  };
+  const { registerField, focusField } = useBookingFormFields();
+  const { formRef, handleSubmit } = useBookingFormSubmit(focusField);
 
   return (
     <form
@@ -203,8 +136,8 @@ export function BookingForm() {
         </div>
 
         <datalist id="cityList">
-          {CITIES.map((city) => (
-            <option key={city} value={city} />
+          {(areas ?? []).map((area) => (
+            <option key={area.id} value={area.name} />
           ))}
         </datalist>
       </div>
@@ -252,16 +185,10 @@ export function BookingForm() {
 
         <button
           type="submit"
-          className={`btn btn-primary h-12 px-5 max-[768px]:col-span-full max-[768px]:w-full${
-            loading ? " is-loading" : ""
-          }`}
+          className="btn btn-primary h-12 px-5 max-[768px]:col-span-full max-[768px]:w-full"
           id="searchBtn"
-          disabled={loading}
-          aria-busy={loading}
         >
-          <span className="btn-label">
-            {loading ? "Đang tìm chuyến..." : "Tìm chuyến xe"}
-          </span>
+          <span className="btn-label">Tìm chuyến xe</span>
           <IconArrowRight />
         </button>
       </div>

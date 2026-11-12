@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { IconClose } from "@/components/icons";
-import { tripsOfTab, useTripsStore } from "@/global-states/trips-store";
+import { useCancelModal } from "../_hooks/use-cancel-modal";
 
 const CARD_REF =
   "relative flex max-h-[calc(100vh-40px)] w-[min(100%,460px)] flex-col overflow-auto rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] p-[30px] text-center shadow-[var(--shadow-lg)] animate-[panelIn_var(--dur)_var(--ease)] max-[400px]:p-[24px_18px]";
@@ -10,38 +9,15 @@ const CARD_REF =
 const FEE_ROW = "flex items-center justify-between gap-3.5 py-[5px] text-sm text-[var(--slate-600)]";
 
 export function CancelModal() {
-  const cancelTargetId = useTripsStore((state) => state.cancelTargetId);
-  const cancelProcessing = useTripsStore((state) => state.cancelProcessing);
-  const trips = useTripsStore((state) => state.trips);
-  const closeCancel = useTripsStore((state) => state.closeCancel);
-  const confirmCancel = useTripsStore((state) => state.confirmCancel);
-
-  const cardRef = useRef<HTMLDivElement>(null);
-  const lastFocusRef = useRef<HTMLElement | null>(null);
-  const open = Boolean(cancelTargetId);
-  const target = cancelTargetId
-    ? tripsOfTab(trips, "sap-toi").find((trip) => trip.id === cancelTargetId)
-    : undefined;
-
-  useEffect(() => {
-    if (!open) return;
-
-    lastFocusRef.current = document.activeElement as HTMLElement | null;
-    cardRef.current?.focus();
-    document.body.style.overflow = "hidden";
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeCancel();
-    };
-    document.addEventListener("keydown", onKeyDown);
-
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = "";
-      lastFocusRef.current?.focus();
-      lastFocusRef.current = null;
-    };
-  }, [open, closeCancel]);
+  const {
+    open,
+    target,
+    cardRef,
+    cancelProcessing,
+    actionError,
+    closeCancel,
+    confirmCancel,
+  } = useCancelModal();
 
   if (!open || !target) return null;
 
@@ -82,8 +58,8 @@ export function CancelModal() {
           Hủy chuyến này?
         </h2>
         <p className="mt-2.5 text-[15px] leading-[1.6] text-[var(--slate-600)]" id="cancelDesc">
-          Vé <strong className="font-bold text-[var(--ink)]">{target.id}</strong>{" "}
-          · Hà Nội đi {target.route}. Ghế đã chọn sẽ được giải phóng cho hành
+          Vé <strong className="font-bold text-[var(--ink)]">{target.code}</strong>{" "}
+          · tuyến {target.route}. Ghế đã chọn sẽ được giải phóng cho hành
           khách khác.
         </p>
 
@@ -107,6 +83,15 @@ export function CancelModal() {
           đã hủy sẽ hiển thị trong tab Đã hủy của Chuyến của tôi.
         </p>
 
+        {actionError ? (
+          <p
+            className="mt-3.5 rounded-[10px] border border-[#fecaca] bg-[var(--red-50)] px-[13px] py-[11px] text-[12.5px] font-medium leading-[1.55] text-[#991b1b]"
+            role="alert"
+          >
+            {actionError}
+          </p>
+        ) : null}
+
         <div className="mt-[22px] flex gap-3 max-[400px]:flex-col">
           <button
             className="btn btn-ghost flex-1"
@@ -120,7 +105,7 @@ export function CancelModal() {
             className={`btn btn-primary flex-1 ${cancelProcessing ? "is-loading" : ""}`}
             id="confirmCancelBtn"
             type="button"
-            onClick={confirmCancel}
+            onClick={() => void confirmCancel()}
           >
             <span className="btn-label">
               {cancelProcessing ? "Đang xử lý..." : "Xác nhận hủy"}

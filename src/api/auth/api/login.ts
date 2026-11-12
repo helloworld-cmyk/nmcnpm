@@ -1,5 +1,5 @@
-import { noAuthApi } from "../method";
-import { wrapRequest } from "../types";
+import { noAuthApi } from "../../method";
+import { wrapRequest } from "../../types";
 
 export type LoginPayload = {
   identifier: string;
@@ -15,6 +15,6 @@ export type LoginResponse = {
 };
 
 /* Gọi API đăng nhập, trả về cặp token khi thành công. */
-export function login(payload: LoginPayload): Promise<LoginResponse> {
+export function loginAPI(payload: LoginPayload): Promise<LoginResponse> {
   return noAuthApi.post<LoginResponse>("/auth/login", wrapRequest(payload));
 }

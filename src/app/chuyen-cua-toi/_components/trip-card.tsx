@@ -7,8 +7,8 @@ import {
   IconCheckCircle,
   IconClock,
   IconClose,
+  IconPhone,
   IconPin,
-  IconStar,
   IconWallet,
 } from "@/components/icons";
 import { useTripsStore } from "@/global-states/trips-store";
@@ -31,7 +31,12 @@ const STATUS_BADGE = {
   pending: {
     className: "bg-[#fff1e7] text-[#9a3412]",
     icon: IconClock,
-    label: "Chờ tài xế xác nhận",
+    label: "Chờ xác nhận",
+  },
+  ongoing: {
+    className: "bg-[var(--sky-100)] text-[var(--sky-800)]",
+    icon: IconArrowRight,
+    label: "Đang di chuyển",
   },
   done: {
     className:
@@ -55,14 +60,26 @@ const ALERT_TONE = {
 
 const ACTION_BTN = "btn btn-sm min-h-11";
 
+/* Chữ cái đầu tên hãng xe cho avatar */
+function companyInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "VV";
+  const first = parts[0].charAt(0);
+  const second = parts.length > 1 ? parts[parts.length - 1].charAt(0) : "";
+  return `${first}${second}`.toUpperCase();
+}
+
 export function TripCard({ trip }: { trip: Trip }) {
   const openCancel = useTripsStore((state) => state.openCancel);
+  const confirmBooking = useTripsStore((state) => state.confirmBooking);
+  const confirmingId = useTripsStore((state) => state.confirmingId);
   const badge = STATUS_BADGE[trip.status];
   const BadgeIcon = badge.icon;
+  const confirming = confirmingId === trip.id;
 
   return (
     <article
-      aria-label={`Chuyến Hà Nội đi ${trip.route}, ${trip.dateLabel.toLowerCase()}`}
+      aria-label={`Chuyến đi ${trip.route}, ${trip.dateLabel.toLowerCase()}`}
       className={CARD}
       data-route={trip.route}
     >
@@ -89,34 +106,34 @@ export function TripCard({ trip }: { trip: Trip }) {
       <p className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11.5px] font-medium leading-[1.4] text-[var(--slate-400)]">
         <span>{trip.dateLabel}</span>
         <span className="before:mr-2 before:text-[var(--slate-300)] before:content-['·']">
-          Mã đặt chỗ {trip.id}
+          Mã đặt chỗ {trip.code}
         </span>
       </p>
 
-      <div className="mt-[11px] mb-3.5 flex flex-wrap items-center gap-2.5 border-t border-[var(--border-soft)] pt-[11px] max-[640px]:flex-wrap">
-        <div className="flex min-w-0 flex-[1_1_100%] items-center gap-2.5 max-[640px]:flex-[1_1_100%]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            alt=""
-            className="size-[38px] shrink-0 rounded-full bg-[var(--navy-800)] object-cover object-[50%_30%]"
-            height={38}
-            loading="lazy"
-            src={trip.driver.photo}
-            width={38}
-          />
+      <div className="mt-[11px] mb-3.5 flex flex-wrap items-center gap-2.5 border-t border-[var(--border-soft)] pt-[11px]">
+        <div className="flex min-w-0 flex-[1_1_100%] items-center gap-2.5">
+          <span
+            aria-hidden="true"
+            className="grid size-[38px] shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,var(--navy-800),var(--sky-700))] font-heading text-[12.5px] font-bold text-white"
+          >
+            {companyInitials(trip.company)}
+          </span>
           <div className="min-w-0">
             <strong className="block font-heading text-[13px] font-bold leading-[1.35] text-[var(--ink)]">
-              {trip.driver.name}
+              {trip.company}
             </strong>
             <span className="flex items-center gap-[3px] text-[11px] text-[var(--slate-500)]">
-              <IconStar className="size-3 shrink-0 text-[#f59e0b]" />
-              {trip.driver.rating} · {trip.driver.trips} chuyến
+              <IconPhone className="size-3 shrink-0 text-[var(--sky-600)]" />
+              Hotline hãng xe
             </span>
           </div>
         </div>
-        <span className="max-w-[46%] text-right text-[11px] leading-[1.4] text-[var(--slate-500)] max-[640px]:ml-auto max-[640px]:max-w-none">
-          {trip.driver.car}
-        </span>
+        <a
+          className="max-w-[46%] text-right text-[11px] font-semibold leading-[1.4] text-[var(--sky-800)] hover:underline max-[640px]:ml-auto max-[640px]:max-w-none"
+          href={`tel:${trip.hotline.replace(/\s/g, "")}`}
+        >
+          {trip.hotline}
+        </a>
       </div>
 
       {trip.alert ? (
@@ -143,9 +160,25 @@ export function TripCard({ trip }: { trip: Trip }) {
         </div>
 
         <div className="flex flex-wrap justify-end gap-2 max-[520px]:w-full max-[520px]:[&>.btn]:flex-[1_1_auto]">
-          <Link className={`${ACTION_BTN} btn-primary`} href="/dat-cho-thanh-cong">
+          <Link
+            className={`${ACTION_BTN} btn-primary`}
+            href={`/dat-cho-thanh-cong?booking=${encodeURIComponent(trip.id)}`}
+          >
             Xem vé
           </Link>
+          {trip.status === "pending" ? (
+            <button
+              aria-busy={confirming}
+              className={`${ACTION_BTN} btn-primary ${confirming ? "is-loading" : ""}`}
+              disabled={confirming}
+              type="button"
+              onClick={() => confirmBooking(trip.id)}
+            >
+              <span className="btn-label">
+                {confirming ? "Đang xác nhận..." : "Xác nhận"}
+              </span>
+            </button>
+          ) : null}
           {trip.status === "confirmed" || trip.status === "pending" ? (
             <button
               className={`${ACTION_BTN} btn-ghost`}
@@ -161,7 +194,7 @@ export function TripCard({ trip }: { trip: Trip }) {
             </Link>
           ) : null}
           {trip.status === "canceled" ? (
-            <Link className={`${ACTION_BTN} btn-primary`} href="/#dat-xe">
+            <Link className={`${ACTION_BTN} btn-ghost`} href="/#dat-xe">
               Đặt lại chuyến
             </Link>
           ) : null}

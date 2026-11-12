@@ -1,11 +1,11 @@
 "use client";
 
+import { useMemo } from "react";
 import { IconMap } from "@/components/icons";
 import {
   selectTripsFiltering,
   useTripsStore,
 } from "@/global-states/trips-store";
-import { TRIP_ROUTE_OPTIONS } from "../_data/trips";
 
 const FILTER_LABEL =
   "mb-1.5 ml-0.5 block text-[11px] font-bold tracking-[0.09em] text-[var(--slate-500)] uppercase";
@@ -22,12 +22,20 @@ const FIELD_ICON =
   "pointer-events-none absolute top-1/2 left-[13px] size-[18px] -translate-y-1/2 text-[var(--sky-600)]";
 
 export function TripFilters() {
+  const trips = useTripsStore((state) => state.trips);
   const search = useTripsStore((state) => state.search);
   const routeFilter = useTripsStore((state) => state.routeFilter);
   const filtering = useTripsStore(selectTripsFiltering);
   const setSearch = useTripsStore((state) => state.setSearch);
   const setRouteFilter = useTripsStore((state) => state.setRouteFilter);
   const resetFilters = useTripsStore((state) => state.resetFilters);
+
+  /* Tuyến gợi ý lấy từ chính các chuyến đã đặt */
+  const routeOptions = useMemo(() => {
+    const names = new Set<string>();
+    for (const trip of trips) if (trip.route) names.add(trip.route);
+    return [...names].sort((a, b) => a.localeCompare(b, "vi"));
+  }, [trips]);
 
   return (
     <div className="mt-2.5 flex items-end gap-3 border-t border-[var(--border-soft)] pt-3.5 max-[640px]:flex-wrap">
@@ -63,7 +71,7 @@ export function TripFilters() {
             onChange={(event) => setRouteFilter(event.target.value)}
           >
             <option value="all">Tất cả tuyến</option>
-            {TRIP_ROUTE_OPTIONS.map((route) => (
+            {routeOptions.map((route) => (
               <option key={route} value={route}>
                 {route}
               </option>

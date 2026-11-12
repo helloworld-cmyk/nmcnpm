@@ -1,5 +1,5 @@
-import { noAuthApi } from "../method";
-import { wrapRequest } from "../types";
+import { noAuthApi } from "../../method";
+import { wrapRequest } from "../../types";
 
 export type RegisterPayload = {
   fullName: string;
@@ -27,7 +27,9 @@ export type RegisterResponse = {
 };
 
 /* Gọi API đăng ký, trả về thông tin tài khoản khi thành công. */
-export function register(payload: RegisterPayload): Promise<RegisterResponse> {
+export function registerAPI(
+  payload: RegisterPayload
+): Promise<RegisterResponse> {
   return noAuthApi.post<RegisterResponse>(
     "/auth/register",
     wrapRequest(payload)

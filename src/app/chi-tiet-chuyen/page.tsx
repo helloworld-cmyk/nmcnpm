@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { SiteShell } from "@/components/layout/site-shell";
 import { Reveal } from "@/components/ui/reveal";
-import { BookingPanel } from "./_components/booking-panel";
-import { DetailTrip } from "./_components/detail-trip";
-import { SeatMapPanel } from "./_components/seat-map";
+import { DetailContent } from "./_components/detail-content";
 
 export const metadata: Metadata = {
   title: "Chi tiết chuyến & chọn ghế — Vi Vu Việt",
@@ -26,12 +25,9 @@ export default function ChiTietChuyenPage() {
             </h1>
           </Reveal>
 
-          <DetailTrip />
-
-          <div className="mt-[clamp(26px,3.5vw,40px)] grid grid-cols-[minmax(0,1fr)_400px] items-start gap-[clamp(24px,3vw,40px)] max-[1024px]:grid-cols-1">
-            <SeatMapPanel />
-            <BookingPanel />
-          </div>
+          <Suspense>
+            <DetailContent />
+          </Suspense>
         </div>
       </section>
     </SiteShell>

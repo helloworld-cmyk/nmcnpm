@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Be_Vietnam_Pro, Noto_Sans } from "next/font/google";
 import { QueryProvider } from "@/components/providers/query-provider";
+import { SessionSync } from "@/components/providers/session-sync";
 import "./globals.css";
 
 const headingFont = Be_Vietnam_Pro({
@@ -34,7 +35,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="vi" className={`${headingFont.variable} ${bodyFont.variable}`}>
       <body>
-        <QueryProvider>{children}</QueryProvider>
+        <QueryProvider>
+          <SessionSync />
+          {children}
+        </QueryProvider>
       </body>
     </html>
   );

@@ -31,3 +31,14 @@ export class ApiError extends Error {
 export function wrapRequest<T>(payload: T): { wsRequest: T } {
   return { wsRequest: payload };
 }
+
+/* Một trang kết quả phân trang từ backend; page bắt đầu từ 0. */
+export type PageResponse<T> = {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+};
