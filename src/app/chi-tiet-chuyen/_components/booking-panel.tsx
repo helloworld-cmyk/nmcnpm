@@ -1,8 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, type FormEvent } from "react";
 import {
   IconArrowRight,
   IconMap,
@@ -11,12 +9,9 @@ import {
   IconShield,
   IconUser,
 } from "@/components/icons";
-import {
-  SEAT_PRICE,
-  formatVnd,
-  useBookingDetailStore,
-  type DetailField,
-} from "@/global-states/booking-detail-store";
+import type { DetailField } from "@/global-states/booking-detail-store";
+import { useBookingPanel } from "../_hooks/use-booking-panel";
+import { formatVnd } from "../_utils/format";
 import { PanelHead } from "./panel-head";
 import { Reveal } from "@/components/ui/reveal";
 
@@ -88,43 +83,26 @@ const FIELD_ICONS: Record<DetailField, typeof IconUser> = {
   dropoff: IconMap,
 };
 
-export function BookingPanel() {
-  const router = useRouter();
+type BookingPanelProps = {
+  /* Giá mỗi ghế của chuyến đang chọn (lấy từ API chi tiết chuyến) */
+  pricePerSeat: number;
+};
 
-  const values = useBookingDetailStore((state) => state.values);
-  const agree = useBookingDetailStore((state) => state.agree);
-  const invalid = useBookingDetailStore((state) => state.invalid);
-  const status = useBookingDetailStore((state) => state.status);
-  const submitting = useBookingDetailStore((state) => state.submitting);
-  const totalLoading = useBookingDetailStore((state) => state.totalLoading);
-  const selectedSeats = useBookingDetailStore((state) => state.selectedSeats);
-  const setField = useBookingDetailStore((state) => state.setField);
-  const setAgree = useBookingDetailStore((state) => state.setAgree);
-  const submit = useBookingDetailStore((state) => state.submit);
-  const cancelFlow = useBookingDetailStore((state) => state.cancelFlow);
-
-  const statusRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => cancelFlow, [cancelFlow]);
-
-  const seatLine = selectedSeats.length
-    ? `${selectedSeats.length} · ${selectedSeats.join(", ")}`
-    : "0";
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const result = submit(() => router.push("/dat-cho-thanh-cong"));
-
-    if (!result.ok) {
-      if (result.needsAuth) {
-        /* Chưa đăng nhập → sang màn đăng nhập, quay lại đây khi xong */
-        router.push("/dang-nhap?next=%2Fchi-tiet-chuyen");
-        return;
-      }
-      statusRef.current?.focus();
-    }
-  };
+export function BookingPanel({ pricePerSeat }: BookingPanelProps) {
+  const {
+    values,
+    agree,
+    invalid,
+    status,
+    submitting,
+    totalLoading,
+    selectedSeats,
+    setField,
+    setAgree,
+    seatLine,
+    statusRef,
+    handleSubmit,
+  } = useBookingPanel();
 
   return (
     <Reveal
@@ -226,7 +204,7 @@ export function BookingPanel() {
           <div className="mt-4 grid gap-2.5 rounded-[var(--radius-md)] border border-[var(--sky-100)] bg-[var(--sky-50)] p-[14px_16px]">
             <ul className="grid gap-2 border-b border-dashed border-[#bae6fd] pb-3">
               <li className="flex items-baseline justify-between gap-3 text-[13.5px] text-[var(--slate-600)]">
-                <span>Ghế đã chọn · {formatVnd(SEAT_PRICE)}/ghế</span>
+                <span>Ghế đã chọn · {formatVnd(pricePerSeat)}/ghế</span>
                 <strong className="text-right font-heading text-sm font-bold text-[var(--ink)]">
                   {seatLine}
                 </strong>
@@ -242,7 +220,7 @@ export function BookingPanel() {
                 }`}
                 id="priceTotalValue"
               >
-                {formatVnd(selectedSeats.length * SEAT_PRICE)}
+                {formatVnd(selectedSeats.length * pricePerSeat)}
               </strong>
             </div>
           </div>

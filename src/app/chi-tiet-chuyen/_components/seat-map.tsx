@@ -1,6 +1,13 @@
 "use client";
 
-import { MAX_SEATS, useBookingDetailStore } from "@/global-states/booking-detail-store";
+import { useMemo } from "react";
+import { useTripSeats } from "@/api/trip/tanstack/use-trip-seats";
+import type { TripSeatResponse } from "@/api/trip/api/types";
+import {
+  MAX_SEATS,
+  useBookingDetailStore,
+} from "@/global-states/booking-detail-store";
+import { toSeatRows } from "../_utils/to-seat-rows";
 import { PanelHead } from "./panel-head";
 import { SeatArt } from "./seat-art";
 
@@ -14,33 +21,6 @@ function SteeringWheel() {
     </svg>
   );
 }
-
-type SeatCell = { id: string; taken?: boolean } | "aisle";
-
-type SeatRow = {
-  key: string;
-  cells: SeatCell[];
-};
-
-/* Sơ đồ 16 chỗ: cabin tài xế + 3 hàng 2+2 và hàng sau 3 ghế (mock theo thiết kế) */
-const SEAT_ROWS: SeatRow[] = [
-  {
-    key: "B",
-    cells: [{ id: "B1" }, { id: "B2" }, "aisle", { id: "B3" }, { id: "B4", taken: true }],
-  },
-  {
-    key: "C",
-    cells: [{ id: "C1" }, { id: "C2", taken: true }, "aisle", { id: "C3" }, { id: "C4", taken: true }],
-  },
-  {
-    key: "D",
-    cells: [{ id: "D1", taken: true }, { id: "D2" }, "aisle", { id: "D3" }, { id: "D4" }],
-  },
-  {
-    key: "E",
-    cells: [{ id: "E1" }, { id: "E2", taken: true }, { id: "E3" }],
-  },
-];
 
 /* Nền ghế đổi màu qua biến CSS --seat-*: mặc định trống */
 const SEAT_BASE =
@@ -72,14 +52,14 @@ const AISLE =
 
 const WHEEL_BASE = "absolute w-[7px] h-5 rounded bg-[var(--slate-400)] opacity-80 max-[520px]:w-1.5 max-[520px]:h-4";
 
-function SeatButton({ cell, picked }: { cell: { id: string; taken?: boolean }; picked: boolean }) {
+function SeatButton({ seat, picked }: { seat: TripSeatResponse; picked: boolean }) {
   const toggleSeat = useBookingDetailStore((state) => state.toggleSeat);
 
-  if (cell.taken) {
+  if (!seat.available) {
     return (
-      <button type="button" className={`${SEAT_BASE} ${SEAT_TAKEN}`} disabled aria-label={`Ghế ${cell.id} — đã bị đặt`}>
+      <button type="button" className={`${SEAT_BASE} ${SEAT_TAKEN}`} disabled aria-label={`Ghế ${seat.seatCode} — đã bị đặt`}>
         <SeatArt className="h-[54px] w-10 rotate-180 max-[520px]:h-[38px] max-[520px]:w-[28px]" />
-        <span className={`${SEAT_NUM} text-[var(--slate-400)] line-through`}>{cell.id}</span>
+        <span className={`${SEAT_NUM} text-[var(--slate-400)] line-through`}>{seat.seatCode}</span>
       </button>
     );
   }
@@ -89,18 +69,30 @@ function SeatButton({ cell, picked }: { cell: { id: string; taken?: boolean }; p
       type="button"
       className={`${SEAT_BASE} ${picked ? SEAT_PICKED : SEAT_FREE}`}
       aria-pressed={picked}
-      onClick={() => toggleSeat(cell.id)}
+      onClick={() => toggleSeat({ id: seat.id, seatCode: seat.seatCode })}
     >
       <SeatArt className="h-[54px] w-10 rotate-180 max-[520px]:h-[38px] max-[520px]:w-[28px]" />
-      <span className={`${SEAT_NUM} ${picked ? "text-[var(--sky-800)]" : ""}`}>{cell.id}</span>
+      <span className={`${SEAT_NUM} ${picked ? "text-[var(--sky-800)]" : ""}`}>{seat.seatCode}</span>
     </button>
   );
 }
 
-export function SeatMapPanel() {
-  const selectedSeats = useBookingDetailStore((state) => state.selectedSeats);
+function rowGridClass(count: number): string {
+  if (count === 4) return GRID_COLS;
+  if (count === 3) return "grid-cols-3";
+  if (count === 2) return "grid-cols-2";
+  return "grid-cols-1";
+}
 
-  const seatLabel = selectedSeats.length ? selectedSeats.join(", ") : "chưa có ghế nào";
+export function SeatMapPanel({ tripId }: { tripId: string }) {
+  const selectedSeats = useBookingDetailStore((state) => state.selectedSeats);
+  const { data, isPending, isError, refetch } = useTripSeats(tripId);
+
+  const rows = useMemo(() => toSeatRows(data ?? []), [data]);
+
+  const seatLabel = selectedSeats.length
+    ? selectedSeats.map((seat) => seat.seatCode).join(", ")
+    : "chưa có ghế nào";
 
   return (
     <section aria-label="Chọn ghế" id="chon-ghe">
@@ -108,13 +100,13 @@ export function SeatMapPanel() {
         <PanelHead
           step="1"
           title="Chọn ghế"
-          desc="Sơ đồ xe 16 chỗ nhìn từ trên xuống — chạm ghế trống để chọn."
+          desc="Sơ đồ xe nhìn từ trên xuống — chạm ghế trống để chọn."
         />
 
         <div
           className="grid gap-3.5"
           role="group"
-          aria-label="Sơ đồ ghế xe 16 chỗ: cabin tài xế và 4 hàng ghế"
+          aria-label="Sơ đồ ghế: cabin tài xế và các hàng ghế"
         >
           <div className="relative mx-auto w-full max-w-[360px] rounded-[var(--radius-xl)_var(--radius-xl)_var(--radius-lg)_var(--radius-lg)] border-[1.5px] border-[var(--sky-100)] bg-[var(--bg)] p-[12px_12px_10px] max-[520px]:p-[10px_8px_8px]">
             <span aria-hidden="true" className={`${WHEEL_BASE} top-6 -left-[5px] max-[520px]:top-5 max-[520px]:-left-1`} />
@@ -123,52 +115,73 @@ export function SeatMapPanel() {
             <span aria-hidden="true" className={`${WHEEL_BASE} bottom-[60px] -right-[5px] max-[520px]:bottom-14 max-[520px]:-right-1`} />
             <span aria-hidden="true" className="mb-3 block h-5 rounded-[var(--radius-sm)] bg-[var(--sky-100)]" />
 
-            <div className={`grid gap-2 items-center mb-3 ${GRID_COLS}`}>
-              <div className="col-span-2 flex flex-col items-start gap-1">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-2">
                 <SteeringWheel />
-                <span className="inline-flex items-center gap-2">
-                  <SeatArt className="h-8 w-6 rotate-180 [--seat-back:var(--slate-200)] [--seat-cushion:var(--slate-200)] [--seat-head:var(--slate-200)]" />
-                  <span className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-[var(--slate-500)]">
-                    Tài xế
-                  </span>
+                <span className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-[var(--slate-500)]">
+                  Tài xế
                 </span>
-              </div>
-
-              <SeatButton cell={{ id: "A1" }} picked={selectedSeats.includes("A1")} />
-
+              </span>
               <span
                 aria-hidden="true"
-                className="absolute top-12 right-[7px] border-[1.5px] border-dashed border-[var(--orange-500)] rounded-[var(--radius-xs)] bg-[var(--orange-50)] px-[3px] py-[7px] text-[9.5px] font-bold tracking-[0.09em] text-[var(--orange-700)] opacity-85 [writing-mode:vertical-rl] max-[520px]:right-[5px] max-[520px]:px-0.5 max-[520px]:py-1.5 max-[520px]:text-[9px]"
+                className="rounded-[var(--radius-xs)] border-[1.5px] border-dashed border-[var(--orange-500)] bg-[var(--orange-50)] px-[6px] py-[3px] text-[9.5px] font-bold tracking-[0.09em] text-[var(--orange-700)] opacity-85"
               >
                 Cửa lên xe
               </span>
             </div>
 
-            <div className="grid gap-2.5 max-[520px]:gap-[5px]">
-              {SEAT_ROWS.map((row) => (
-                <div
-                  key={row.key}
-                  className={`grid items-stretch gap-2 max-[520px]:gap-[5px] ${
-                    row.key === "E" ? "grid-cols-3" : GRID_COLS
-                  }`}
-                >
-                  {row.cells.map((cell, index) =>
-                    cell === "aisle" ? (
-                      <span key={`${row.key}-${index}`} aria-hidden="true" className={AISLE} />
+            {isPending ? (
+              <p className="flex items-center justify-center gap-2.5 py-8 text-[12.5px] font-semibold text-[var(--slate-500)]" role="status">
+                <span
+                  aria-hidden="true"
+                  className="size-[16px] animate-[spin_0.8s_linear_infinite] rounded-full border-2 border-[var(--sky-100)] border-t-[var(--sky-700)]"
+                />
+                Đang tải sơ đồ ghế...
+              </p>
+            ) : isError ? (
+              <div className="grid justify-items-center gap-2 py-8 text-center">
+                <p className="text-[12.5px] font-semibold text-[var(--slate-600)]">
+                  Không tải được sơ đồ ghế.
+                </p>
+                <button className="btn btn-ghost btn-sm" type="button" onClick={() => refetch()}>
+                  Thử lại
+                </button>
+              </div>
+            ) : !rows.length ? (
+              <p className="py-8 text-center text-[12.5px] font-semibold text-[var(--slate-500)]">
+                Chuyến này chưa có sơ đồ ghế.
+              </p>
+            ) : (
+              <div className="grid gap-2.5 max-[520px]:gap-[5px]">
+                {rows.map((row) => (
+                  <div
+                    key={row.key}
+                    className={`grid items-stretch gap-2 max-[520px]:gap-[5px] ${rowGridClass(row.seats.length)}`}
+                  >
+                    {row.seats.length === 4 ? (
+                      <>
+                        <SeatButton seat={row.seats[0]} picked={selectedSeats.some((s) => s.id === row.seats[0].id)} />
+                        <SeatButton seat={row.seats[1]} picked={selectedSeats.some((s) => s.id === row.seats[1].id)} />
+                        <span aria-hidden="true" className={AISLE} />
+                        <SeatButton seat={row.seats[2]} picked={selectedSeats.some((s) => s.id === row.seats[2].id)} />
+                        <SeatButton seat={row.seats[3]} picked={selectedSeats.some((s) => s.id === row.seats[3].id)} />
+                      </>
                     ) : (
-                      <SeatButton
-                        key={cell.id}
-                        cell={cell}
-                        picked={selectedSeats.includes(cell.id)}
-                      />
-                    ),
-                  )}
-                </div>
-              ))}
-            </div>
+                      row.seats.map((seat) => (
+                        <SeatButton
+                          key={seat.id}
+                          seat={seat}
+                          picked={selectedSeats.some((s) => s.id === seat.id)}
+                        />
+                      ))
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
             <p aria-hidden="true" className="mt-2.5 text-center text-[10.5px] font-bold uppercase tracking-[0.08em] text-[var(--slate-400)]">
-              Ford Transit · 16 chỗ
+              Xe ghép liên tỉnh
             </p>
           </div>
 
