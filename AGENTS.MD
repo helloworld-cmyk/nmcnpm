@@ -57,9 +57,17 @@ lặp lại ngoài phạm vi 1 component không — nếu không, viết inline.
 
 - Ngôn ngữ UI và comment: tiếng Việt.
 - Tách component theo vai trò: `src/components/ui/`, `src/components/layout/`,
-  `src/app/(home)/_components/` cho section riêng của trang chủ.
+  `src/components/auth/`, `src/components/icons/`, `src/app/(home)/_components/`
+  cho section riêng của trang chủ.
 - Trước khi kết thúc task có sửa code FE: chạy `npm run lint` và
   `npx tsc --noEmit` để kiểm tra.
+- Dự án chạy **Next.js 16** (App Router + Turbopack, bật `cacheComponents` và
+  `partialPrefetching` trong `next.config.ts`):
+  - Route/layout dùng **typed props sinh sẵn** (`PageProps<"/route">`,
+    `LayoutProps<"/route">` — xem `src/app/layout.tsx`), không tự khai báo
+    `children: React.ReactNode`.
+  - Path alias `@/*` → `src/*`; import chéo module (`@/global-states/...`,
+    `@/config/...`) bằng alias, không dùng relative `../../` vượt quá 1 cấp.
 
 ### 2.1. Xử lý file tạm trong `temp/`
 
@@ -107,8 +115,8 @@ lặp lại ngoài phạm vi 1 component không — nếu không, viết inline.
 - Thuộc tính đổi theo chuẩn React: `class` → `className`, `for` → `htmlFor`,
   các attribute kebab-case (`stroke-width`, `viewBox`…) → camelCase.
 - Thẻ rỗng phải self-closing (`<br />`, `<input />`, `<img />`).
-- Icon SVG → chuyển thành component TSX (`src/components/ui/`), nhận `className`
-  qua prop thay vì copy nguyên khối SVG nhiều lần.
+- Icon SVG → chuyển thành component TSX (`src/components/icons/`), nhận
+  `className` qua prop thay vì copy nguyên khối SVG nhiều lần.
 
 ### 4.3. Khi nào mới được chạm DOM trực tiếp
 
@@ -198,8 +206,74 @@ render từ state thay cho gán `.textContent`, và class gom vào hằng số k
   component consumer; KHÔNG dùng middleware `persist` trừ khi có yêu cầu riêng.
 - Mọi truy cập `window` trong store phải bọc `typeof window === "undefined"`
   hoặc `try/catch` (chế độ riêng tư).
+- Truy cập `localStorage` không viết tay trong component/store — dùng helper
+  SSR-safe ở `src/config/storage/` (`getItem`, `setItem`, `removeItem`,
+  `getJSON`, `setJSON`…), key phải đăng ký trong `STORAGE_KEYS`
+  (`src/config/constants/storage.ts`), không hardcode chuỗi key.
 
-## 6. Cấu trúc thư mục dự án
+---
+
+## 6. Lớp API — axios (BẮT BUỘC)
+
+> Nguyên tắc: **mọi request ra backend đi qua `src/api/`**. CẤM gọi
+> `axios`/`fetch` trực tiếp trong component, page hoặc store.
+
+### 6.1. Kiến trúc hiện tại
+
+| Thành phần                     | File                              | Vai trò                                                                 |
+| ------------------------------ | --------------------------------- | ----------------------------------------------------------------------- |
+| Base client                    | `src/api/client/base.ts`          | `API_BASE_URL` (env `API_BASE_URL`, fallback `http://localhost:8080/api/v1`) + `CLIENT_CONFIG` |
+| `AuthClient` / `NoAuthClient`  | `src/api/client/*.ts`             | 2 axios instance: có/không xác thực                                     |
+| Interceptor                    | `src/api/interceptor.ts`          | Gắn Bearer token, unwrap envelope, tự refresh khi 401, bọc lỗi thành `ApiError` |
+| Methods                        | `src/api/method.ts`               | `authApi` / `noAuthApi` — get/post/put/patch/delete trả thẳng `T`        |
+| Hợp đồng chung                 | `src/api/types.ts`                | `APP_CODE`, `ApiEnvelope`, `ApiError`, `wrapRequest`                    |
+| Endpoint                       | `src/api/<domain>/api/<endpoint>.ts` | Types `Payload`/`Response` + hàm gọi API (vd. `src/api/auth/api/login.ts`) |
+| Hook TanStack                  | `src/api/<domain>/tanstack/use-*.ts` | Hook react-query bọc endpoint (vd. `src/api/auth/tanstack/use-login.ts`) |
+
+### 6.2. Quy ước viết endpoint mới
+
+- Mỗi domain tách 2 folder: `src/api/<domain>/api/` chứa endpoint gọi axios,
+  `src/api/<domain>/tanstack/` chứa hook react-query tương ứng (tham khảo
+  `src/api/auth/`).
+- 1 endpoint/1 file trong `src/api/<domain>/api/`. Mỗi file export:
+  - `type XxxPayload`, `type XxxResponse`;
+  - hàm gọi API: `export function xxxAPI(payload): Promise<XxxResponse>`.
+- Hook tương ứng đặt trong `src/api/<domain>/tanstack/use-<ten>.ts`, cùng kiểu
+  với `use-login.ts`/`use-register.ts` (`"use client"`, lỗi là `ApiError`,
+  nhận `options` để override).
+- **Tên hàm gọi API phải có hậu tố `API`** (BẮT BUỘC): `login` → `loginAPI`,
+  `register` → `registerAPI`, `getMe` → `getMeAPI`… Tránh trùng với tên biến/
+  component/hook cùng tên ở tầng UI. Hook react-query (`use*.ts`) vẫn giữ
+  tiền tố `use` và KHÔNG thêm hậu tố `API` (vd. `useLogin`, không phải
+  `useLoginAPI`).
+- Chọn client theo loại API: cần đăng nhập → `authApi` (tự gắn token, tự refresh
+  khi 401); công khai (login, register, refresh) → `noAuthApi`.
+- Body request phải bọc bằng `wrapRequest(payload)` → `{ wsRequest: payload }`.
+- Response backend là envelope `{ code, message, wsResponse }` — interceptor đã
+  unwrap, hàm endpoint khai báo kiểu chính là `wsResponse`.
+- Chỉ `code === APP_CODE.SUCCESS (0)` là thành công; mọi lỗi business đã bị
+  reject thành `ApiError` (có `code`, `status`). Component/store bắt `ApiError`
+  để hiển thị `message`, KHÔNG đọc envelope thủ công.
+- Đọc/ghi token: luôn qua `getItem`/`setItem`/`removeItem` của
+  `src/config/storage` với `STORAGE_KEYS`. Không đọc `process.env.API_BASE_URL`
+  ở đâu khác ngoài `src/api/client/base.ts`.
+- Lưu ý trạng thái hiện tại: store `login`/`register` vẫn chạy **luồng mock**
+  (timer đặt trong store). Khi nối API thật, thay phần mock bằng hàm ở
+  `src/api/auth/api/`, giữ nguyên pattern store (validate + status + loading trong
+  store; focus lỗi và điều hướng do hook của màn đảm nhiệm).
+
+### 6.3. Server state vs client state
+
+- `@tanstack/react-query` đã cài (`QueryProvider` trong
+  `src/components/providers/query-provider.tsx` bọc toàn app): khi cần
+  cache/refetch/invalidation dữ liệu server, dùng hook trong
+  `src/api/<domain>/tanstack/` thay vì tự viết cache trong Zustand.
+- Zustand chỉ giữ client state (form, filter, UI); không duplicate dữ liệu
+  server vào store nếu chỉ để hiển thị.
+
+---
+
+## 7. Cấu trúc thư mục dự án
 
 ```
 nmcnpm/
@@ -238,7 +312,20 @@ nmcnpm/
 ├── temp/                      #   File tạm — chỉ xóa TỪNG FILE, giữ folder (xem §2.1)
 │
 └── src/                       # ✅ SOURCE CHÍNH (Next.js App Router + Tailwind v4)
-    ├── api/                   #   API client/helper (đang trống — đặt khi có backend)
+    ├── api/                   #   Lớp API axios (xem §6)
+    │   ├── client/            #     AuthClient / NoAuthClient + base config
+    │   ├── auth/              #     Đăng nhập/đăng ký/xác thực
+    │   │   ├── api/           #       Endpoint login, register, refresh, logout, get-me
+    │   │   └── tanstack/      #       Hook react-query (use-login, use-register…)
+    │   ├── area/              #     Tìm kiếm địa điểm (api/ + tanstack/)
+    │   ├── trip/              #     Tìm chuyến, chi tiết chuyến (api/ + tanstack/)
+    │   ├── company/           #     Hãng xe của tôi (api/ + tanstack/)
+    │   ├── interceptor.ts     #     Gắn token, unwrap envelope, refresh 401
+    │   ├── method.ts          #     authApi / noAuthApi
+    │   └── types.ts           #     APP_CODE, ApiEnvelope, ApiError, wrapRequest
+    ├── config/                #   Cấu hình/hằng số dùng chung phía client
+    │   ├── constants/         #     STORAGE_KEYS và hằng số khác
+    │   └── storage/           #     Helper localStorage SSR-safe (getItem, setJSON…)
     ├── global-states/         #   Zustand stores — state + actions (xem §5)
     │   │                      #     session, booking-form, booking-detail, trips,
     │   │                      #     search-filters, login, register, profile
@@ -249,7 +336,7 @@ nmcnpm/
     │   ├── motion.css         #     .reveal/.is-in + @keyframes
     │   └── responsive-shared.css
     ├── components/
-    │   ├── ui/                #   brand, reveal, site-header, site-footer
+    │   ├── ui/                #   brand, reveal, confirm-modal, site-header, site-footer
     │   ├── layout/            #   site-shell
     │   ├── icons/             #   Icon SVG dạng TSX (icon-base + index.ts export chung)
     │   ├── auth/              #   Khối dùng chung màn đăng nhập/đăng ký
@@ -273,7 +360,7 @@ nmcnpm/
         └── dang-ky/           #   page.tsx + _components/ + _hooks/ + _utils/
 ```
 
-### 6.1. Quy ước theo cấu trúc
+### 7.1. Quy ước theo cấu trúc
 
 - Folder route `src/app/<ten-route>/` chứa `page.tsx`; code riêng của route đặt
   trong folder con bắt đầu bằng `_` (Next.js bỏ qua khi định tuyến):
@@ -281,9 +368,13 @@ nmcnpm/
   (hàm tiện ích riêng), `_data/` (dữ liệu mock/thumbnail).
 - Route mới → tạo folder cùng cấp trong `src/app/`, lấy màn tương ứng trong
   `design/` làm tham chiếu bố cục.
-- Component dùng chung ≥2 route → `src/components/` (phân vai theo folder §6);
+- Component dùng chung ≥2 route → `src/components/` (phân vai theo folder §7);
   chỉ dùng 1 route → `src/app/<route>/_components/`.
 - Store mới → `src/global-states/<domain>-store.ts` theo §5.
+- Endpoint API mới → `src/api/<domain>/api/<endpoint>.ts` + hook tương ứng
+  `src/api/<domain>/tanstack/use-*.ts` theo §6.
+- Hằng số dùng chung (key storage, hằng cấu hình) → `src/config/constants/`;
+  helper truy cập browser storage → `src/config/storage/` (xem §5.3).
 - Icon mới → thêm file TSX trong `src/components/icons/` và export qua
   `index.ts`; không copy SVG trực tiếp vào page/component.
 

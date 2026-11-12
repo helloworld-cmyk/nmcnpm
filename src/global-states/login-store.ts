@@ -1,11 +1,15 @@
 import { create } from "zustand";
 import {
-  buildLoginUser,
   validateLoginValue,
   type LoginField,
   type LoginValues,
 } from "@/app/dang-nhap/_utils/login-validators";
-import { useSessionStore } from "./session-store";
+import { getMeAPI } from "@/api/auth/api/get-me";
+import { loginAPI } from "@/api/auth/api/login";
+import { ApiError } from "@/api/types";
+import { STORAGE_KEYS } from "@/config/constants/storage";
+import { getItem, setItem } from "@/config/storage";
+import { useSessionStore, type SessionUser } from "./session-store";
 
 export type LoginStatus = {
   type: "info" | "error" | "success";
@@ -32,13 +36,12 @@ type LoginState = {
 
 const LOGIN_REQUIRED: LoginField[] = ["identifier", "password"];
 
-/* Thời gian mock xử lý và khoảng chờ hiển thị thành công trước khi chuyển hướng (ms) */
-const MOCK_DELAY = 900;
+/* Khoảng chờ hiển thị thành công trước khi chuyển hướng (ms) */
 const REDIRECT_DELAY = 600;
 
 const INITIAL_VALUES: LoginValues = { identifier: "", password: "" };
 
-/* Timer của luồng mock, lưu ngoài store để có thể huỷ khi unmount */
+/* Timer của khoảng chờ chuyển hướng, lưu ngoài store để có thể huỷ khi unmount */
 let pendingTimers: number[] = [];
 
 function clearTimers() {
@@ -48,6 +51,11 @@ function clearTimers() {
 
 function clearErrorStatus(status: LoginStatus | null): LoginStatus | null {
   return status?.type === "error" ? null : status;
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof ApiError) return error.message;
+  return "Không thể đăng nhập, vui lòng thử lại.";
 }
 
 /* State + logic của riêng màn đăng nhập. Component chỉ gọi action;
@@ -109,19 +117,39 @@ export const useLoginStore = create<LoginState>()((set, get) => ({
       return { ok: false, field: firstInvalid };
     }
 
-    /* Mock đăng nhập: luôn thành công sau một khoảng chờ ngắn */
     set({
       invalid: {},
       status: { type: "info", message: "Đang xử lý, vui lòng chờ..." },
       loading: true,
     });
 
-    const user = buildLoginUser(values.identifier);
+    const identifier = values.identifier.trim();
 
-    clearTimers();
-    pendingTimers = [
-      window.setTimeout(() => {
+    void (async () => {
+      try {
+        const tokens = await loginAPI({
+          identifier,
+          password: values.password,
+        });
+        setItem(STORAGE_KEYS.accessToken, tokens.accessToken);
+        setItem(STORAGE_KEYS.refreshToken, tokens.refreshToken);
+
+        /* Lấy thông tin tài khoản ngay sau khi có token */
+        let user: SessionUser = { name: identifier };
+        try {
+          const me = await getMeAPI();
+          user = {
+            id: me.id,
+            name: me.fullName,
+            email: me.email,
+            phone: me.phone,
+          };
+        } catch (meError) {
+          /* Token đã bị interceptor dọn (401) → coi như đăng nhập thất bại */
+          if (!getItem(STORAGE_KEYS.accessToken)) throw meError;
+        }
         useSessionStore.getState().setUser(user);
+
         set({
           loading: false,
           status: {
@@ -129,24 +157,33 @@ export const useLoginStore = create<LoginState>()((set, get) => ({
             message: "Thành công! Đang chuyển hướng...",
           },
         });
-      }, MOCK_DELAY),
-      window.setTimeout(() => {
-        pendingTimers = [];
+
+        clearTimers();
+        pendingTimers = [
+          window.setTimeout(() => {
+            pendingTimers = [];
+            set({
+              values: INITIAL_VALUES,
+              invalid: {},
+              status: null,
+              loading: false,
+              remember: false,
+            });
+            onRedirect();
+          }, REDIRECT_DELAY),
+        ];
+      } catch (error) {
         set({
-          values: INITIAL_VALUES,
-          invalid: {},
-          status: null,
           loading: false,
-          remember: false,
+          status: { type: "error", message: errorMessage(error) },
         });
-        onRedirect();
-      }, MOCK_DELAY + REDIRECT_DELAY),
-    ];
+      }
+    })();
 
     return { ok: true, field: null };
   },
 
-  /* Huỷ luồng mock đang chạy (gọi khi component unmount) */
+  /* Huỷ luồng đang chạy (gọi khi component unmount) */
   cancelFlow: () => {
     clearTimers();
     set({ loading: false, status: null });

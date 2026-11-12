@@ -1,8 +1,8 @@
 import { STORAGE_KEYS } from "@/config/constants/storage";
 import { getItem, setItem } from "@/config/storage";
 
-import { NoAuthClient } from "../client/no-auth-client";
-import { APP_CODE, ApiError, wrapRequest } from "../types";
+import { NoAuthClient } from "../../client/no-auth-client";
+import { APP_CODE, ApiError, wrapRequest } from "../../types";
 
 export type RefreshPayload = {
   refreshToken: string;
@@ -17,7 +17,7 @@ export type RefreshResponse = {
 };
 
 /* Gọi API làm mới token bằng refresh token hiện có. */
-export async function requestNewTokens(
+export async function requestNewTokensAPI(
   refreshToken: string
 ): Promise<RefreshResponse> {
   const response = await NoAuthClient.post<RefreshResponse>(
@@ -37,7 +37,7 @@ async function refreshAccessTokenOnce(): Promise<string> {
   }
 
   try {
-    const tokens = await requestNewTokens(refreshToken);
+    const tokens = await requestNewTokensAPI(refreshToken);
     setItem(STORAGE_KEYS.accessToken, tokens.accessToken);
     setItem(STORAGE_KEYS.refreshToken, tokens.refreshToken);
     return tokens.accessToken;
@@ -50,7 +50,7 @@ async function refreshAccessTokenOnce(): Promise<string> {
   }
 }
 
-export function refreshAccessToken(): Promise<string> {
+export function refreshAccessTokenAPI(): Promise<string> {
   if (!refreshPromise) {
     refreshPromise = refreshAccessTokenOnce().finally(() => {
       refreshPromise = null;

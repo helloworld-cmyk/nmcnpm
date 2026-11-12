@@ -1,8 +1,9 @@
 import { create } from "zustand";
+import { createBookingAPI } from "@/api/booking/api/create-booking";
+import { ApiError } from "@/api/types";
 import { useSessionStore } from "./session-store";
 
-/* Giá vé và giới hạn ghế của màn chi tiết chuyến (mock theo thiết kế) */
-export const SEAT_PRICE = 180000;
+/* Giới hạn số ghế mỗi lần đặt của màn chi tiết chuyến */
 export const MAX_SEATS = 4;
 
 export type DetailField = "name" | "phone" | "pickup" | "dropoff";
@@ -15,6 +16,9 @@ export type DetailStatus = {
   issues?: { anchor: string; label: string }[];
 };
 
+/* Ghế đang chọn: id dùng để gọi API giữ ghế, seatCode để hiển thị */
+export type SelectedSeat = { id: string; seatCode: string };
+
 export type DetailSubmitResult =
   | { ok: false; needsAuth: false }
   | { ok: false; needsAuth: true }
@@ -23,7 +27,8 @@ export type DetailSubmitResult =
 type DetailValues = Record<DetailField, string>;
 
 type BookingDetailState = {
-  selectedSeats: string[];
+  tripId: string | null;
+  selectedSeats: SelectedSeat[];
   values: DetailValues;
   agree: boolean;
   invalid: Partial<Record<DetailField, boolean>> & { agree?: boolean };
@@ -31,10 +36,11 @@ type BookingDetailState = {
   submitting: boolean;
   /* Nháy mờ khối tổng tiền khi danh sách ghế thay đổi */
   totalLoading: boolean;
-  toggleSeat: (id: string) => void;
+  setTripId: (tripId: string | null) => void;
+  toggleSeat: (seat: SelectedSeat) => void;
   setField: (field: DetailField, value: string) => void;
   setAgree: (value: boolean) => void;
-  submit: (onDone: () => void) => DetailSubmitResult;
+  submit: (onDone: (bookingId: string) => void) => DetailSubmitResult;
   cancelFlow: () => void;
 };
 
@@ -45,23 +51,23 @@ const INITIAL_VALUES: DetailValues = {
   dropoff: "",
 };
 
-/* Timer của luồng mock, lưu ngoài store để huỷ được khi unmount */
+/* Timer nháy mờ khối tổng tiền, lưu ngoài store để huỷ được khi unmount */
 let totalTimer: number | null = null;
-let flowTimers: number[] = [];
-
-function clearFlowTimers() {
-  for (const timerId of flowTimers) window.clearTimeout(timerId);
-  flowTimers = [];
-}
 
 /* Chuẩn hoá SĐT: bỏ khoảng trắng, dấu chấm, gạch nối và ngoặc */
 function normalizePhone(value: string) {
   return value.replace(/[\s.\-()]/g, "");
 }
 
+function errorMessage(error: unknown): string {
+  if (error instanceof ApiError) return error.message;
+  return "Không thể đặt chỗ, vui lòng thử lại.";
+}
+
 export const useBookingDetailStore = create<BookingDetailState>()(
   (set, get) => ({
-    selectedSeats: ["B1"],
+    tripId: null,
+    selectedSeats: [],
     values: INITIAL_VALUES,
     agree: false,
     invalid: {},
@@ -69,13 +75,21 @@ export const useBookingDetailStore = create<BookingDetailState>()(
     submitting: false,
     totalLoading: false,
 
-    toggleSeat: (id) => {
+    /* Khi đổi sang chuyến khác thì bỏ ghế đã chọn từ chuyến trước */
+    setTripId: (tripId) =>
+      set((state) =>
+        state.tripId === tripId
+          ? {}
+          : { tripId, selectedSeats: [], status: null, totalLoading: false },
+      ),
+
+    toggleSeat: (seat) => {
       const { selectedSeats, status } = get();
-      const isSelected = selectedSeats.includes(id);
+      const isSelected = selectedSeats.some((item) => item.id === seat.id);
 
       if (isSelected) {
         set({
-          selectedSeats: selectedSeats.filter((seat) => seat !== id),
+          selectedSeats: selectedSeats.filter((item) => item.id !== seat.id),
           status: status?.type === "error" ? null : status,
         });
       } else {
@@ -89,7 +103,7 @@ export const useBookingDetailStore = create<BookingDetailState>()(
           return;
         }
         set({
-          selectedSeats: [...selectedSeats, id],
+          selectedSeats: [...selectedSeats, seat],
           status: null,
         });
       }
@@ -122,7 +136,7 @@ export const useBookingDetailStore = create<BookingDetailState>()(
       })),
 
     submit: (onDone) => {
-      const { selectedSeats, values, agree } = get();
+      const { tripId, selectedSeats, values, agree } = get();
 
       const issues: NonNullable<DetailStatus["issues"]> = [];
       const invalid: BookingDetailState["invalid"] = {};
@@ -165,6 +179,9 @@ export const useBookingDetailStore = create<BookingDetailState>()(
           label: "Đồng ý điều khoản đặt chỗ",
         });
       }
+      if (!tripId) {
+        issues.push({ anchor: "#chon-ghe", label: "Chọn lại chuyến xe" });
+      }
 
       if (issues.length) {
         set({
@@ -180,47 +197,58 @@ export const useBookingDetailStore = create<BookingDetailState>()(
       }
 
       /* Chưa đăng nhập → sang màn đăng nhập, quay lại đây khi xong */
-      if (!useSessionStore.getState().user) {
+      const sessionUser = useSessionStore.getState().user;
+      if (!sessionUser) {
         set({ invalid: {}, status: null });
         return { ok: false, needsAuth: true };
       }
 
-      /* Mock xác nhận đặt chỗ: luôn thành công sau một khoảng chờ */
       set({ invalid: {}, status: null, submitting: true });
 
-      clearFlowTimers();
-      flowTimers = [
-        window.setTimeout(() => {
+      const contactName = values.name.trim();
+      const contactPhone = values.phone.trim();
+
+      void (async () => {
+        try {
+          const booking = await createBookingAPI({
+            tripId: tripId as string,
+            contactName,
+            contactPhone,
+            contactEmail: sessionUser.email,
+            passengers: selectedSeats.map((seat) => ({
+              passengerName: contactName,
+              passengerPhone: contactPhone,
+              pickupAddress: values.pickup.trim(),
+              dropoffAddress: values.dropoff.trim(),
+              seatId: seat.id,
+            })),
+          });
+
           set({
             submitting: false,
             status: {
               type: "success",
-              message:
-                "Đặt vé thành công! Đang chuyển tới vé điện tử...",
+              message: "Đặt vé thành công! Đang chuyển tới vé điện tử...",
             },
           });
-        }, 1400),
-        window.setTimeout(() => {
-          flowTimers = [];
-          onDone();
-        }, 2300),
-      ];
+          onDone(booking.id);
+        } catch (error) {
+          set({
+            submitting: false,
+            status: { type: "error", message: errorMessage(error) },
+          });
+        }
+      })();
 
       return { ok: true };
     },
 
     cancelFlow: () => {
-      clearFlowTimers();
       if (totalTimer) {
         window.clearTimeout(totalTimer);
         totalTimer = null;
       }
-      set({ submitting: false });
+      set({ submitting: false, totalLoading: false });
     },
   }),
 );
-
-/* Định dạng tiền VN dùng chung cho màn chi tiết */
-export function formatVnd(value: number) {
-  return `${value.toLocaleString("vi-VN")}đ`;
-}

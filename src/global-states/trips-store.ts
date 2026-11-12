@@ -1,15 +1,19 @@
 import { create } from "zustand";
-import { TRIPS, type Trip } from "@/app/chuyen-cua-toi/_data/trips";
+import { cancelBookingAPI } from "@/api/booking/api/cancel-booking";
+import { confirmBookingAPI } from "@/api/booking/api/confirm-booking";
+import { getMyBookingsAPI } from "@/api/booking/api/get-my-bookings";
+import { ApiError } from "@/api/types";
+import type { Trip } from "@/app/chuyen-cua-toi/_data/trips";
+import { toTrip } from "@/app/chuyen-cua-toi/_utils/to-trip";
 
 export type TripTab = "sap-toi" | "dang-di" | "hoan-thanh" | "da-huy";
 
 export type TripsStatus = "ready" | "loading" | "error";
 
 export const COMPLETED_PAGE_SIZE = 5;
-const LOAD_MORE_DELAY = 600;
-const CANCEL_DELAY = 900;
 
-const CANCELED_NOTE = "Đã hủy · chưa thanh toán";
+/* Số đặt vé tải về một lần cho màn "Chuyến của tôi" */
+const BOOKINGS_PAGE_SIZE = 100;
 
 type TripsState = {
   trips: Trip[];
@@ -21,32 +25,60 @@ type TripsState = {
   loadingMore: boolean;
   cancelTargetId: string | null;
   cancelProcessing: boolean;
+  confirmingId: string | null;
+  /* Thông báo lỗi của thao tác hủy/xác nhận */
+  actionError: string | null;
+  loadBookings: () => Promise<void>;
   setTab: (tab: TripTab) => void;
   setSearch: (value: string) => void;
   setRouteFilter: (value: string) => void;
   resetFilters: () => void;
-  beginLoading: () => void;
-  finishLoading: () => void;
-  showError: () => void;
   loadMoreCompleted: () => void;
   openCancel: (tripId: string) => void;
   closeCancel: () => void;
-  confirmCancel: () => void;
+  confirmCancel: () => Promise<void>;
+  confirmBooking: (tripId: string) => Promise<void>;
 };
 
 let loadMoreTimer: number | null = null;
-let cancelTimer: number | null = null;
+
+function errorMessage(error: unknown): string {
+  if (error instanceof ApiError) return error.message;
+  return "Không thực hiện được thao tác, vui lòng thử lại.";
+}
+
+/* Thay một đặt vé trong danh sách bằng dữ liệu mới nhất từ API */
+function replaceTrip(trips: Trip[], updated: Trip): Trip[] {
+  return trips.map((trip) => (trip.id === updated.id ? updated : trip));
+}
 
 export const useTripsStore = create<TripsState>()((set, get) => ({
-  trips: TRIPS,
+  trips: [],
   tab: "sap-toi",
   search: "",
   routeFilter: "all",
-  status: "ready",
+  status: "loading",
   completedVisible: COMPLETED_PAGE_SIZE,
   loadingMore: false,
   cancelTargetId: null,
   cancelProcessing: false,
+  confirmingId: null,
+  actionError: null,
+
+  /* Tải danh sách đặt vé của khách hàng từ API */
+  loadBookings: async () => {
+    set({ status: "loading", actionError: null });
+    try {
+      const page = await getMyBookingsAPI({ size: BOOKINGS_PAGE_SIZE });
+      set({
+        trips: page.content.map(toTrip),
+        status: "ready",
+        completedVisible: COMPLETED_PAGE_SIZE,
+      });
+    } catch {
+      set({ status: "error" });
+    }
+  },
 
   setTab: (tab) => set({ tab }),
 
@@ -55,12 +87,6 @@ export const useTripsStore = create<TripsState>()((set, get) => ({
   setRouteFilter: (value) => set({ routeFilter: value }),
 
   resetFilters: () => set({ search: "", routeFilter: "all" }),
-
-  beginLoading: () => set({ status: "loading" }),
-
-  finishLoading: () => set({ status: "ready" }),
-
-  showError: () => set({ status: "error" }),
 
   loadMoreCompleted: () => {
     const { loadingMore, status, completedVisible, trips } = get();
@@ -79,44 +105,49 @@ export const useTripsStore = create<TripsState>()((set, get) => ({
           total,
         ),
       }));
-    }, LOAD_MORE_DELAY);
+    }, 600);
   },
 
-  openCancel: (tripId) => set({ cancelTargetId: tripId }),
+  openCancel: (tripId) =>
+    set({ cancelTargetId: tripId, actionError: null }),
 
   closeCancel: () => {
     if (get().cancelProcessing) return;
-    set({ cancelTargetId: null, cancelProcessing: false });
+    set({ cancelTargetId: null, actionError: null });
   },
 
-  confirmCancel: () => {
+  confirmCancel: async () => {
     const { cancelTargetId, cancelProcessing } = get();
     if (!cancelTargetId || cancelProcessing) return;
 
-    set({ cancelProcessing: true });
-    if (cancelTimer) window.clearTimeout(cancelTimer);
-    cancelTimer = window.setTimeout(() => {
-      cancelTimer = null;
+    set({ cancelProcessing: true, actionError: null });
+    try {
+      const booking = await cancelBookingAPI(cancelTargetId);
       set((state) => ({
         cancelProcessing: false,
         cancelTargetId: null,
-        trips: state.trips.map((trip) =>
-          trip.id === state.cancelTargetId
-            ? {
-                ...trip,
-                status: "canceled" as const,
-                payNote: CANCELED_NOTE,
-                alert: {
-                  tone: "sky" as const,
-                  icon: "close" as const,
-                  message:
-                    "Bạn đã hủy vé — ghế được giải phóng cho hành khách khác.",
-                },
-              }
-            : trip,
-        ),
+        trips: replaceTrip(state.trips, toTrip(booking)),
       }));
-    }, CANCEL_DELAY);
+    } catch (error) {
+      set({
+        cancelProcessing: false,
+        actionError: errorMessage(error),
+      });
+    }
+  },
+
+  confirmBooking: async (tripId) => {
+    if (get().confirmingId) return;
+    set({ confirmingId: tripId, actionError: null });
+    try {
+      const booking = await confirmBookingAPI(tripId);
+      set((state) => ({
+        confirmingId: null,
+        trips: replaceTrip(state.trips, toTrip(booking)),
+      }));
+    } catch (error) {
+      set({ confirmingId: null, actionError: errorMessage(error) });
+    }
   },
 }));
 
@@ -125,6 +156,9 @@ export function tripsOfTab(trips: Trip[], tab: TripTab): Trip[] {
     return trips.filter(
       (trip) => trip.status === "confirmed" || trip.status === "pending",
     );
+  }
+  if (tab === "dang-di") {
+    return trips.filter((trip) => trip.status === "ongoing");
   }
   if (tab === "hoan-thanh") {
     return trips.filter((trip) => trip.status === "done");
@@ -143,7 +177,7 @@ export function matchTrip(
   const query = search.trim().toLowerCase();
   const okQuery =
     !query ||
-    [trip.id, trip.route, trip.driver.name, trip.pickup, trip.dropoff]
+    [trip.code, trip.route, trip.company, trip.pickup, trip.dropoff]
       .join(" ")
       .toLowerCase()
       .includes(query);

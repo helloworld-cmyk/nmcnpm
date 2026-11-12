@@ -8,7 +8,7 @@ import { useSessionStore } from "@/global-states/session-store";
 import { STORAGE_KEYS } from "@/config/constants/storage";
 import { getItem, removeItem } from "@/config/storage";
 
-import { refreshAccessToken } from "./auth/refresh";
+import { refreshAccessTokenAPI } from "./auth/api/refresh";
 import { AuthClient } from "./client/auth-client";
 import { NoAuthClient } from "./client/no-auth-client";
 import { APP_CODE, ApiError, type ApiEnvelope } from "./types";
@@ -94,7 +94,7 @@ function attachResponseInterceptor(
 
 /* AuthClient: gắn token + tự làm mới phiên khi gặp 401. */
 attachAuthRequestInterceptor(AuthClient);
-attachResponseInterceptor(AuthClient, refreshAccessToken);
+attachResponseInterceptor(AuthClient, refreshAccessTokenAPI);
 
 /* NoAuthClient: chỉ chuẩn hóa envelope, không đụng tới token. */
 attachResponseInterceptor(NoAuthClient);

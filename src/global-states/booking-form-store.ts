@@ -26,7 +26,6 @@ type BookingFormState = {
   seats: string;
   invalidField: BookingField | null;
   status: FormStatus | null;
-  loading: boolean;
   swapping: boolean;
   prefillId: number;
   setOrigin: (value: string) => void;
@@ -47,7 +46,6 @@ export const useBookingFormStore = create<BookingFormState>()((set, get) => ({
   seats: "1",
   invalidField: null,
   status: null,
-  loading: false,
   swapping: false,
   prefillId: 0,
 
@@ -123,7 +121,7 @@ export const useBookingFormStore = create<BookingFormState>()((set, get) => ({
       return { ok: false, field: error.field };
     }
 
-    set({ invalidField: null, status: null, loading: true });
+    set({ invalidField: null, status: null });
 
     const params = new URLSearchParams({
       from: origin.trim(),

@@ -1,12 +1,12 @@
 import { create } from "zustand";
 import {
-  buildRegisterUser,
   isConfirmMismatch,
   validateRegisterField,
   type RegisterField,
   type RegisterValues,
 } from "@/app/dang-ky/_utils/register-validators";
-import { useSessionStore } from "./session-store";
+import { registerAPI } from "@/api/auth/api/register";
+import { ApiError } from "@/api/types";
 
 export type RegisterStatus = {
   type: "info" | "error" | "success";
@@ -37,9 +37,8 @@ const REGISTER_REQUIRED: RegisterField[] = [
   "confirm",
 ];
 
-/* Thời gian mock xử lý và khoảng chờ hiển thị thành công trước khi chuyển hướng (ms) */
-const MOCK_DELAY = 900;
-const REDIRECT_DELAY = 600;
+/* Khoảng chờ hiển thị thành công trước khi chuyển hướng (ms) */
+const REDIRECT_DELAY = 900;
 
 const INITIAL_VALUES: RegisterValues = {
   fullname: "",
@@ -49,7 +48,7 @@ const INITIAL_VALUES: RegisterValues = {
   confirm: "",
 };
 
-/* Timer của luồng mock, lưu ngoài store để có thể huỷ khi unmount */
+/* Timer của khoảng chờ chuyển hướng, lưu ngoài store để có thể huỷ khi unmount */
 let pendingTimers: number[] = [];
 
 function clearTimers() {
@@ -59,6 +58,11 @@ function clearTimers() {
 
 function clearErrorStatus(status: RegisterStatus | null): RegisterStatus | null {
   return status?.type === "error" ? null : status;
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof ApiError) return error.message;
+  return "Không thể tạo tài khoản, vui lòng thử lại.";
 }
 
 /* State + logic của riêng màn đăng ký. Component chỉ gọi action;
@@ -122,43 +126,55 @@ export const useRegisterStore = create<RegisterState>()((set, get) => ({
       return { ok: false, field: mismatch ? "confirm" : firstInvalid };
     }
 
-    /* Mock đăng ký: luôn thành công sau một khoảng chờ ngắn */
     set({
       invalid: {},
       status: { type: "info", message: "Đang xử lý, vui lòng chờ..." },
       loading: true,
     });
 
-    const user = buildRegisterUser(values);
+    void (async () => {
+      try {
+        /* Đăng ký chỉ tạo tài khoản, chưa phát hành token */
+        await registerAPI({
+          fullName: values.fullname.trim(),
+          phone: values.phone.trim(),
+          email: values.email.trim(),
+          password: values.password,
+        });
 
-    clearTimers();
-    pendingTimers = [
-      window.setTimeout(() => {
-        useSessionStore.getState().setUser(user);
         set({
           loading: false,
           status: {
             type: "success",
-            message: "Thành công! Đang chuyển hướng...",
+            message: "Tạo tài khoản thành công! Vui lòng đăng nhập.",
           },
         });
-      }, MOCK_DELAY),
-      window.setTimeout(() => {
-        pendingTimers = [];
+
+        clearTimers();
+        pendingTimers = [
+          window.setTimeout(() => {
+            pendingTimers = [];
+            set({
+              values: INITIAL_VALUES,
+              invalid: {},
+              status: null,
+              loading: false,
+            });
+            onRedirect();
+          }, REDIRECT_DELAY),
+        ];
+      } catch (error) {
         set({
-          values: INITIAL_VALUES,
-          invalid: {},
-          status: null,
           loading: false,
+          status: { type: "error", message: errorMessage(error) },
         });
-        onRedirect();
-      }, MOCK_DELAY + REDIRECT_DELAY),
-    ];
+      }
+    })();
 
     return { ok: true, field: null };
   },
 
-  /* Huỷ luồng mock đang chạy (gọi khi component unmount) */
+  /* Huỷ luồng đang chạy (gọi khi component unmount) */
   cancelFlow: () => {
     clearTimers();
     set({ loading: false, status: null });

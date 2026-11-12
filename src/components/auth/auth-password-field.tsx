@@ -12,7 +12,7 @@ const TOGGLE_ICON = "size-[18px]";
 type AuthPasswordFieldProps = Omit<AuthFieldProps, "type" | "trailing">;
 
 /* Ô mật khẩu dùng chung: ẩn/hiện bằng toggle nội bộ; màn nào cần hint
- * (ví dụ thanh đo độ mạnh của màn đăng ký) tự truyền qua prop hint. */
+ * tự truyền qua prop hint. */
 export function AuthPasswordField({
   id,
   value,

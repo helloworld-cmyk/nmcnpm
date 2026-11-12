@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 export type SessionUser = {
+  id?: string;
   name?: string;
   email?: string;
   phone?: string;

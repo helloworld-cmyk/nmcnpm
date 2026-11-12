@@ -10,8 +10,13 @@ import {
   IconMenu,
   IconUser,
 } from "@/components/icons";
+import { useLogout } from "@/api/auth/tanstack/use-logout";
+import { STORAGE_KEYS } from "@/config/constants/storage";
+import { removeItem } from "@/config/storage";
 import { useSessionStore, type SessionUser } from "@/global-states/session-store";
 import { Brand } from "./brand";
+import { ConfirmModal } from "./confirm-modal";
+
 
 const USER_MENU_BTN =
   "inline-flex min-h-11 items-center gap-[9px] rounded-full border border-[var(--border)] bg-white p-[4px_12px_4px_5px] text-[var(--ink)] transition-[border-color,background,box-shadow] duration-[var(--dur)] ease-[var(--ease)] hover:border-[var(--sky-300)] hover:bg-[var(--sky-50)] hover:shadow-[var(--shadow-sm)] max-[900px]:gap-0 max-[900px]:p-[4px_5px]";
@@ -42,20 +47,18 @@ function getInitial(user: SessionUser): string {
 export function SiteHeader() {
   const router = useRouter();
   const user = useSessionStore((state) => state.user);
-  const hydrateSession = useSessionStore((state) => state.hydrate);
   const clearSession = useSessionStore((state) => state.clearSession);
+  const logoutMutation = useLogout();
+
   const [scrolled, setScrolled] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
   const headerRef = useRef<HTMLElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const userMenuBtnRef = useRef<HTMLButtonElement>(null);
   const navToggleRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    hydrateSession();
-  }, [hydrateSession]);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -106,10 +109,18 @@ export function SiteHeader() {
   const hoverCapable = () =>
     window.matchMedia("(hover: hover) and (pointer: fine)").matches;
 
-  const handleLogout = () => {
-    clearSession();
+  const confirmLogout = () => {
+    setLogoutOpen(false);
     setMenuOpen(false);
-    router.refresh();
+    /* Thu hồi phiên trên server (không chặn UI) rồi dọn token + phiên local */
+    logoutMutation.mutate(undefined, {
+      onSettled: () => {
+        removeItem(STORAGE_KEYS.accessToken);
+        removeItem(STORAGE_KEYS.refreshToken);
+        clearSession();
+        router.push("/");
+      },
+    });
   };
 
   const initial = user ? getInitial(user) : "";
@@ -210,7 +221,10 @@ export function SiteHeader() {
               <button
                 className={DROPDOWN_ITEM_DANGER}
                 type="button"
-                onClick={handleLogout}
+                onClick={() => {
+                  setMenuOpen(false);
+                  setLogoutOpen(true);
+                }}
               >
                 <IconLogout className={`${DROPDOWN_ICON} text-[var(--red-600)] group-hover:text-[var(--red-600)]`} />
                 Đăng xuất
@@ -275,6 +289,18 @@ export function SiteHeader() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        cancelLabel="Ở lại"
+        confirmLabel="Đăng xuất"
+        danger
+        description="Bạn có thực sự muốn đăng xuất khỏi Vi Vu Việt không?"
+        icon={<IconLogout className="size-[26px]" />}
+        open={logoutOpen}
+        title="Đăng xuất tài khoản?"
+        onClose={() => setLogoutOpen(false)}
+        onConfirm={confirmLogout}
+      />
     </header>
   );
 }

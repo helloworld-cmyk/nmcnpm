@@ -1,15 +1,10 @@
 import { create } from "zustand";
+import { updateProfileAPI } from "@/api/auth/api/update-profile";
+import type { ProfileResponse } from "@/api/auth/api/get-profile";
+import { ApiError } from "@/api/types";
 import type { SessionUser } from "./session-store";
 
-export type ProfileField =
-  | "fullName"
-  | "email"
-  | "birthDate"
-  | "gender"
-  | "address"
-  | "homeCity"
-  | "prefVehicle"
-  | "noteDriver";
+export type ProfileField = "fullName" | "email";
 
 export type ProfileValues = Record<ProfileField, string> & { phone: string };
 
@@ -18,21 +13,12 @@ export type ProfileStatus = {
   message: string;
 };
 
-/* Giá trị demo khi chưa đăng nhập — khớp thiết kế màn Hồ sơ cá nhân */
+/* Giá trị khởi tạo rỗng — hồ sơ được nạp từ API /me/profile hoặc phiên đăng nhập */
 export const PROFILE_DEFAULTS: ProfileValues = {
-  fullName: "Nguyễn Thu Hà",
-  phone: "0912 345 678",
-  email: "thuha.nguyen@gmail.com",
-  birthDate: "1998-06-14",
-  gender: "nu",
-  address: "Số 12, ngõ 45 Nguyễn Chánh, Cầu Giấy, Hà Nội",
-  homeCity: "hanoi",
-  prefVehicle: "van9",
-  noteDriver: "",
+  fullName: "",
+  email: "",
+  phone: "",
 };
-
-export const PROFILE_AVATAR_DEFAULT =
-  "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=240";
 
 export type ProfileInvalid = Partial<Record<ProfileField, string>>;
 
@@ -57,28 +43,27 @@ export function validateProfileField(
 type ProfileState = {
   values: ProfileValues;
   saved: ProfileValues;
-  avatarUrl: string;
-  savedAvatarUrl: string;
   saving: boolean;
   savedAt: number;
   invalidFields: ProfileInvalid;
   status: ProfileStatus | null;
   setField: (field: ProfileField, value: string) => void;
   markInvalid: (field: ProfileField, message: string | null) => void;
-  setAvatar: (url: string) => void;
   setStatus: (status: ProfileStatus | null) => void;
   saveProfile: () => ProfileField | null;
   resetToSaved: () => void;
   hydrateFromSession: (user: SessionUser | null) => void;
+  hydrateFromProfile: (profile: ProfileResponse | null) => void;
 };
 
-let saveTimer: number | null = null;
+function errorMessage(error: unknown): string {
+  if (error instanceof ApiError) return error.message;
+  return "Không lưu được hồ sơ, vui lòng thử lại.";
+}
 
 export const useProfileStore = create<ProfileState>()((set, get) => ({
   values: PROFILE_DEFAULTS,
   saved: PROFILE_DEFAULTS,
-  avatarUrl: PROFILE_AVATAR_DEFAULT,
-  savedAvatarUrl: PROFILE_AVATAR_DEFAULT,
   saving: false,
   savedAt: 0,
   invalidFields: {},
@@ -101,15 +86,6 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
       if (message) next[field] = message;
       else delete next[field];
       return { invalidFields: next };
-    }),
-
-  setAvatar: (url) =>
-    set({
-      avatarUrl: url,
-      status: {
-        type: "info",
-        message: "Ảnh đại diện đã cập nhật. Nhấn “Lưu thay đổi” để hoàn tất.",
-      },
     }),
 
   setStatus: (status) => set({ status }),
@@ -137,34 +113,51 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
 
     set({ invalidFields: {}, status: null, saving: true });
 
-    if (saveTimer) window.clearTimeout(saveTimer);
-    saveTimer = window.setTimeout(() => {
-      saveTimer = null;
-      const { values: latest, avatarUrl } = get();
-      set({
-        saved: latest,
-        savedAvatarUrl: avatarUrl,
-        saving: false,
-        savedAt: get().savedAt + 1,
-        status: {
-          type: "success",
-          message:
-            "Đã lưu hồ sơ của bạn. Thông tin mới sẽ áp dụng cho các chuyến đi sau.",
-        },
-      });
-    }, 900);
+    void (async () => {
+      try {
+        const profile = await updateProfileAPI({
+          fullName: values.fullName.trim(),
+          email: values.email.trim(),
+        });
+
+        set((state) => {
+          const latest: ProfileValues = {
+            ...state.values,
+            fullName: profile.fullName,
+            email: profile.email,
+            phone: profile.phone,
+          };
+          return {
+            values: latest,
+            saved: latest,
+            saving: false,
+            savedAt: state.savedAt + 1,
+            status: {
+              type: "success",
+              message:
+                "Đã lưu hồ sơ của bạn. Thông tin mới sẽ áp dụng cho các chuyến đi sau.",
+            },
+          };
+        });
+      } catch (error) {
+        set({
+          saving: false,
+          status: { type: "error", message: errorMessage(error) },
+        });
+      }
+    })();
+
     return null;
   },
 
   resetToSaved: () =>
     set((state) => ({
       values: state.saved,
-      avatarUrl: state.savedAvatarUrl,
       invalidFields: {},
       status: { type: "info", message: "Đã hoàn tác về thông tin đã lưu gần nhất." },
     })),
 
-  /* Đồng bộ tên/email/SĐT từ phiên đăng nhập (mock) một lần sau khi mount */
+  /* Dự phòng: đồng bộ tên/email/SĐT từ phiên khi chưa có hồ sơ từ API */
   hydrateFromSession: (user) => {
     if (!user) return;
     const { values, saved, saving, savedAt } = get();
@@ -178,11 +171,25 @@ export const useProfileStore = create<ProfileState>()((set, get) => ({
     };
     set({ values: next, saved: { ...saved, ...next } });
   },
+
+  /* Đồng bộ hồ sơ từ API /me/profile một lần sau khi mount */
+  hydrateFromProfile: (profile) => {
+    if (!profile) return;
+    const { saving, savedAt } = get();
+    if (saving || savedAt > 0) return;
+
+    set((state) => {
+      const latest: ProfileValues = {
+        ...state.values,
+        fullName: profile.fullName || state.values.fullName,
+        email: profile.email || state.values.email,
+        phone: profile.phone || state.values.phone,
+      };
+      return { values: latest, saved: latest };
+    });
+  },
 }));
 
 export function selectProfileDirty(state: ProfileState): boolean {
-  return (
-    JSON.stringify(state.values) !== JSON.stringify(state.saved) ||
-    state.avatarUrl !== state.savedAvatarUrl
-  );
+  return JSON.stringify(state.values) !== JSON.stringify(state.saved);
 }
