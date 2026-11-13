@@ -14,6 +14,9 @@ export type FormStatus = {
 export type BookingPrefill = {
   from: string;
   to: string;
+  /* Id địa điểm lấy từ API /areas khi tuyến gợi ý khớp được địa điểm */
+  fromId?: string | null;
+  toId?: string | null;
 };
 
 export type SearchResult =
@@ -27,7 +30,6 @@ type BookingFormState = {
   originAreaId: string | null;
   destinationAreaId: string | null;
   date: string | null;
-  seats: string;
   invalidField: BookingField | null;
   status: FormStatus | null;
   swapping: boolean;
@@ -37,9 +39,9 @@ type BookingFormState = {
   pickOrigin: (area: AreaResponse) => void;
   pickDestination: (area: AreaResponse) => void;
   setDate: (value: string) => void;
-  setSeats: (value: string) => void;
   swapRoute: () => void;
   requestPrefill: (detail: BookingPrefill) => void;
+  requestDestinationPrefill: (area: AreaResponse) => void;
   startSearch: () => SearchResult;
 };
 
@@ -51,7 +53,6 @@ export const useBookingFormStore = create<BookingFormState>()((set, get) => ({
   originAreaId: null,
   destinationAreaId: null,
   date: null,
-  seats: "1",
   invalidField: null,
   status: null,
   swapping: false,
@@ -100,8 +101,6 @@ export const useBookingFormStore = create<BookingFormState>()((set, get) => ({
       status: state.status?.type === "error" ? null : state.status,
     })),
 
-  setSeats: (value) => set({ seats: value }),
-
   swapRoute: () => {
     const { origin, destination, originAreaId, destinationAreaId } = get();
 
@@ -131,9 +130,9 @@ export const useBookingFormStore = create<BookingFormState>()((set, get) => ({
     set((state) => ({
       origin: detail.from,
       destination: detail.to,
-      /* Tuyến gợi ý chỉ có tên, chưa biết id — để trống cho tới khi người dùng chọn */
-      originAreaId: null,
-      destinationAreaId: null,
+      /* Id địa điểm lấy từ API /areas; null khi không khớp được địa điểm nào */
+      originAreaId: detail.fromId ?? null,
+      destinationAreaId: detail.toId ?? null,
       invalidField: null,
       status: {
         type: "info",
@@ -142,12 +141,25 @@ export const useBookingFormStore = create<BookingFormState>()((set, get) => ({
       prefillId: state.prefillId + 1,
     })),
 
+  /* Chọn nhanh một điểm đến từ danh sách địa điểm: điền điểm đến và cuộn tới form */
+  requestDestinationPrefill: (area) =>
+    set((state) => ({
+      destination: area.name,
+      destinationAreaId: area.id,
+      invalidField:
+        state.invalidField === "destination" ? null : state.invalidField,
+      status: {
+        type: "info",
+        message: `Đã chọn điểm đến ${area.name}. Chọn điểm đi và bấm Tìm chuyến xe.`,
+      },
+      prefillId: state.prefillId + 1,
+    })),
+
   startSearch: () => {
-    const { origin, destination, originAreaId, destinationAreaId, date, seats } =
-      get();
+    const { origin, destination, originAreaId, destinationAreaId, date } = get();
     const dateValue = date ?? tomorrowISO();
 
-    const error = validateBooking({ origin, destination, date: dateValue, seats });
+    const error = validateBooking({ origin, destination, date: dateValue });
     if (error) {
       set({
         invalidField: error.field,
@@ -162,7 +174,6 @@ export const useBookingFormStore = create<BookingFormState>()((set, get) => ({
       from: origin.trim(),
       to: destination.trim(),
       date: dateValue,
-      seats,
     });
     /* Gửi kèm id địa điểm đã chọn để màn kết quả gọi /trips không cần đoán theo tên */
     if (originAreaId) params.set("fromId", originAreaId);

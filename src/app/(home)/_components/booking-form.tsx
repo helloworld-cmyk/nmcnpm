@@ -1,12 +1,7 @@
 "use client";
 
-import {
-  IconArrowRight,
-  IconCalendar,
-  IconShield,
-  IconSwap,
-  IconUsers,
-} from "@/components/icons";
+import { IconArrowRight, IconShield, IconSwap } from "@/components/icons";
+import { DatePicker } from "@/components/ui/date-picker";
 import { useBookingFormStore } from "@/global-states/booking-form-store";
 import { AreaField } from "./area-field";
 import { useBookingFormFields } from "../_hooks/use-booking-form-fields";
@@ -33,8 +28,6 @@ const FIELD_INPUT =
 const FIELD_INPUT_INVALID =
   "border-[#fca5a5] bg-[#fff8f8] focus:shadow-[0_0_0_4px_rgba(220,38,38,0.12)]";
 
-const FIELD_SELECT = `${FIELD_INPUT} border-[var(--border)] cursor-pointer appearance-none pr-9`;
-
 const fieldInputClass = (invalid: boolean) =>
   `${FIELD_INPUT} ${invalid ? FIELD_INPUT_INVALID : "border-[var(--border)]"}`;
 
@@ -42,7 +35,6 @@ export function BookingForm() {
   const origin = useBookingFormStore((state) => state.origin);
   const destination = useBookingFormStore((state) => state.destination);
   const storedDate = useBookingFormStore((state) => state.date);
-  const seats = useBookingFormStore((state) => state.seats);
   const invalidField = useBookingFormStore((state) => state.invalidField);
   const status = useBookingFormStore((state) => state.status);
   const swapping = useBookingFormStore((state) => state.swapping);
@@ -52,7 +44,6 @@ export function BookingForm() {
   const pickOrigin = useBookingFormStore((state) => state.pickOrigin);
   const pickDestination = useBookingFormStore((state) => state.pickDestination);
   const setDate = useBookingFormStore((state) => state.setDate);
-  const setSeats = useBookingFormStore((state) => state.setSeats);
   const swapRoute = useBookingFormStore((state) => state.swapRoute);
 
   const minDate = useTodayISO();
@@ -118,44 +109,20 @@ export function BookingForm() {
         />
       </div>
 
-      <div className="grid grid-cols-[1fr_1fr_auto] gap-3 items-end mt-3 max-[768px]:grid-cols-2 max-[520px]:grid-cols-1">
+      <div className="grid grid-cols-[1fr_auto] gap-3 items-end mt-3 max-[768px]:grid-cols-2 max-[520px]:grid-cols-1">
         <div>
           <label className={FIELD_LABEL} htmlFor="travelDate">
             Ngày đi
           </label>
           <div className={FIELD_CONTROL}>
-            <IconCalendar className={FIELD_ICON} />
-            <input
-              className={fieldInputClass(invalidField === "date")}
-              type="date"
+            <DatePicker
               id="travelDate"
-              name="travelDate"
-              ref={registerField("date")}
-              required
-              min={minDate || undefined}
               value={date}
-              aria-invalid={invalidField === "date" ? true : undefined}
-              onChange={(event) => setDate(event.target.value)}
+              onChange={setDate}
+              invalid={invalidField === "date"}
+              min={minDate || undefined}
+              ref={registerField("date")}
             />
-          </div>
-        </div>
-
-        <div>
-          <label className={FIELD_LABEL} htmlFor="seats">Số ghế</label>
-          <div className={`${FIELD_CONTROL} after:content-[''] after:absolute after:top-1/2 after:right-4 after:size-2 after:border-r-2 after:border-b-2 after:border-slate-500 after:-translate-y-[70%] after:rotate-45 after:pointer-events-none`}>
-            <IconUsers className={FIELD_ICON} />
-            <select
-              className={FIELD_SELECT}
-              id="seats"
-              name="seats"
-              value={seats}
-              onChange={(event) => setSeats(event.target.value)}
-            >
-              <option value="1">1 ghế</option>
-              <option value="2">2 ghế</option>
-              <option value="3">3 ghế</option>
-              <option value="4">4 ghế</option>
-            </select>
           </div>
         </div>
 

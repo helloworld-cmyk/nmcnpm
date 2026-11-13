@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { IconCalendar, IconRoute, IconUsers } from "@/components/icons";
-import { formatDateLabel, formatSeatsLabel } from "../_utils/format";
+import { IconCalendar, IconRoute } from "@/components/icons";
+import { formatDateLabel } from "../_utils/format";
 
 const META_ITEM =
   "inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-[var(--slate-500)] max-[400px]:text-xs";
@@ -15,7 +15,6 @@ export function SearchSummary() {
   const from = searchParams.get("from") || "Hà Nội";
   const to = searchParams.get("to") || "Ninh Bình";
   const date = formatDateLabel(searchParams.get("date"));
-  const seats = formatSeatsLabel(searchParams.get("seats") || "2");
 
   return (
     <section
@@ -34,12 +33,6 @@ export function SearchSummary() {
               <span className={META_ITEM}>
                 <IconCalendar className={META_ICON} />
                 {date}
-              </span>
-            ) : null}
-            {seats ? (
-              <span className={META_ITEM}>
-                <IconUsers className={META_ICON} />
-                {seats}
               </span>
             ) : null}
           </span>

@@ -122,18 +122,15 @@ export function TripCard({ trip }: { trip: Trip }) {
             <strong className="block font-heading text-[13px] font-bold leading-[1.35] text-[var(--ink)]">
               {trip.company}
             </strong>
-            <span className="flex items-center gap-[3px] text-[11px] text-[var(--slate-500)]">
+            <a
+              className="flex w-fit items-center gap-[3px] text-[11px] font-semibold text-[var(--sky-800)] hover:underline"
+              href={`tel:${trip.hotline.replace(/\s/g, "")}`}
+            >
               <IconPhone className="size-3 shrink-0 text-[var(--sky-600)]" />
-              Hotline hãng xe
-            </span>
+              {trip.hotline}
+            </a>
           </div>
         </div>
-        <a
-          className="max-w-[46%] text-right text-[11px] font-semibold leading-[1.4] text-[var(--sky-800)] hover:underline max-[640px]:ml-auto max-[640px]:max-w-none"
-          href={`tel:${trip.hotline.replace(/\s/g, "")}`}
-        >
-          {trip.hotline}
-        </a>
       </div>
 
       {trip.alert ? (

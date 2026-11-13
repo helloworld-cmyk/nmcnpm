@@ -6,6 +6,7 @@ export { IconCar } from "./car";
 export { IconCheck } from "./check";
 export { IconCheckCircle } from "./check-circle";
 export { IconChevronDown } from "./chevron-down";
+export { IconChevronRight } from "./chevron-right";
 export { IconClock } from "./clock";
 export { IconCopy } from "./copy";
 export { IconClose } from "./close";

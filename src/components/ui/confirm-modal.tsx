@@ -8,7 +8,7 @@ const OVERLAY =
   "fixed inset-0 z-90 flex items-center justify-center p-5 max-[400px]:p-3.5";
 
 const CARD =
-  "relative flex max-h-[calc(100vh-40px)] w-[min(100%,420px)] flex-col overflow-auto rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] p-[30px] text-center shadow-[var(--shadow-lg)] animate-[panelIn_var(--dur)_var(--ease)] max-[400px]:p-[24px_18px]";
+  "scroll-area relative flex max-h-[calc(100vh-40px)] w-[min(100%,420px)] flex-col overflow-auto rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] p-[30px] text-center shadow-[var(--shadow-lg)] animate-[panelIn_var(--dur)_var(--ease)] max-[400px]:p-[24px_18px]";
 
 const CLOSE_BTN =
   "absolute top-3.5 right-3.5 inline-flex size-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[var(--slate-500)] transition-[background,color] duration-[var(--dur)] ease-[var(--ease)] hover:bg-[var(--sky-50)] hover:text-[var(--sky-700)]";

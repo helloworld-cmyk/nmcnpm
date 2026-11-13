@@ -12,7 +12,7 @@ import { useAreas } from "@/api/area/tanstack/use-areas";
 import { IconPin } from "@/components/icons";
 
 const DROPDOWN =
-  "absolute inset-x-0 top-[calc(100%+4px)] z-[5] max-h-[248px] overflow-auto rounded-[12px] border border-[var(--border)] bg-white p-1 shadow-[0_18px_40px_-20px_rgba(8,20,38,0.35)]";
+  "scroll-area absolute inset-x-0 top-[calc(100%+4px)] z-[5] max-h-[248px] overflow-auto rounded-[12px] border border-[var(--border)] bg-white p-1 shadow-[0_18px_40px_-20px_rgba(8,20,38,0.35)]";
 
 const OPTION =
   "flex w-full cursor-pointer items-center justify-between gap-3 rounded-[9px] px-3 py-2 text-left text-[14px] font-medium text-[var(--ink)]";
@@ -20,6 +20,9 @@ const OPTION =
 const OPTION_ACTIVE = "bg-[var(--sky-50)] text-[var(--sky-800)]";
 
 const HINT = "px-3 py-2.5 text-[12.5px] font-medium text-[var(--slate-500)]";
+
+/* Số gợi ý tối đa render mỗi lần, tránh danh sách quá nặng khi chưa gõ từ khóa */
+const MAX_OPTIONS = 50;
 
 const AREA_TYPE_LABEL: Record<string, string> = {
   city: "Thành phố",
@@ -69,27 +72,31 @@ export function AreaField({
 
   /* Trì hoãn từ khóa để không gọi API theo từng ký tự (không dùng timer) */
   const deferred = useDeferredValue(value.trim());
-  const enabled = open && deferred.length >= 1;
+  /* Mở ô là hiện danh sách ngay: chưa gõ thì lấy toàn bộ, gõ tới đâu lọc tới đó */
+  const enabled = open;
 
-  const { data, isFetching } = useAreas(
-    { keyword: deferred },
+  const { data, isFetching, isError } = useAreas(
+    { keyword: deferred || undefined },
     { enabled, staleTime: 60_000 },
   );
 
   const options = useMemo(() => {
     const seen = new Set<string>();
-    return (data ?? []).filter((area) => {
+    const unique = (data ?? []).filter((area) => {
       const key = area.name.trim().toLowerCase();
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
+    return unique.slice(0, MAX_OPTIONS);
   }, [data]);
+
+  const truncated = (data?.length ?? 0) > MAX_OPTIONS;
 
   /* Kẹp chỉ số đang chọn theo danh sách gợi ý hiện tại (không cần effect) */
   const activeIndex = active >= 0 && active < options.length ? active : -1;
 
-  const showList = open && deferred.length >= 1;
+  const showList = open;
 
   const pick = (area: AreaResponse) => {
     onPick(area);
@@ -153,9 +160,8 @@ export function AreaField({
             setOpen(true);
             setActive(-1);
           }}
-          onFocus={() => {
-            if (value.trim()) setOpen(true);
-          }}
+          onFocus={() => setOpen(true)}
+          onClick={() => setOpen(true)}
           onBlur={() => {
             setOpen(false);
             setActive(-1);
@@ -193,9 +199,15 @@ export function AreaField({
             </ul>
             {!options.length ? (
               <p className={HINT}>
-                {isFetching
-                  ? "Đang tìm địa điểm..."
-                  : "Không tìm thấy địa điểm phù hợp."}
+                {isError
+                  ? "Không tải được danh sách địa điểm. Vui lòng thử lại."
+                  : isFetching
+                    ? "Đang tìm địa điểm..."
+                    : "Không tìm thấy địa điểm phù hợp."}
+              </p>
+            ) : truncated ? (
+              <p className={HINT}>
+                Còn nhiều địa điểm khác — nhập tên để lọc bớt.
               </p>
             ) : null}
           </div>

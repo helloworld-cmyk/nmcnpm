@@ -16,6 +16,34 @@
 html {
   scroll-padding-top: calc(var(--header-h) + 20px);
   -webkit-text-size-adjust: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: var(--slate-300) transparent;
+}
+
+/* Thanh cuộn dùng chung: cuộn trang (html) + mọi vùng cuộn nội bộ (.scroll-area) */
+html::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+html::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--slate-300);
+  background-clip: padding-box;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: var(--sky-500);
+  background-clip: padding-box;
+}
+
+html::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 body {
@@ -99,6 +127,37 @@ select {
 /* ================= Components ================= */
 
 @layer components {
+/* Vùng cuộn nội bộ (dropdown, modal, danh sách...) — cùng kiểu thanh cuộn với html */
+.scroll-area {
+  scrollbar-width: thin;
+  scrollbar-color: var(--slate-300) transparent;
+}
+
+.scroll-area::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.scroll-area::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scroll-area::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--slate-300);
+  background-clip: padding-box;
+}
+
+.scroll-area::-webkit-scrollbar-thumb:hover {
+  background: var(--sky-500);
+  background-clip: padding-box;
+}
+
+.scroll-area::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;

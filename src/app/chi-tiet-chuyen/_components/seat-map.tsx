@@ -6,7 +6,7 @@ import {
   MAX_SEATS,
   useBookingDetailStore,
 } from "@/global-states/booking-detail-store";
-import { toSeatRows } from "../_utils/to-seat-rows";
+import { toSeatLayout } from "../_utils/to-seat-layout";
 import { PanelHead } from "./panel-head";
 import { SeatArt } from "./seat-art";
 import { SeatButton } from "./seat-button";
@@ -19,26 +19,33 @@ const LEGEND_TONES = {
   taken: "[--seat-back:var(--slate-200)] [--seat-head:var(--slate-200)] [--seat-cushion:var(--slate-200)] [--seat-arm:var(--slate-200)] [--seat-line:var(--slate-200)]",
 } as const;
 
-const GRID_COLS =
-  "grid-cols-[1fr_1fr_16px_1fr_1fr] max-[520px]:grid-cols-[1fr_1fr_12px_1fr_1fr]";
-
 const AISLE =
   "relative min-h-11 before:content-[''] before:absolute before:top-1.5 before:bottom-1.5 before:left-1/2 before:w-0.5 before:-translate-x-1/2 before:opacity-55 before:bg-[repeating-linear-gradient(to_bottom,var(--slate-300)_0_4px,transparent_4px_8px)]";
 
+/* Mỗi hàng là một lưới giữ đúng số cột và vị trí lối đi từ toạ độ ghế. */
+const ROW_GRID = "grid items-stretch gap-2 max-[520px]:gap-[5px]";
+
+/* Bề rộng cột lối đi (cột không có ghế); cột có ghế giãn bằng 1fr. */
+const AISLE_VAR = "[--aisle-w:16px] max-[520px]:[--aisle-w:12px]";
+
 const WHEEL_BASE = "absolute w-[7px] h-5 rounded bg-[var(--slate-400)] opacity-80 max-[520px]:w-1.5 max-[520px]:h-4";
 
-function rowGridClass(count: number): string {
-  if (count === 4) return GRID_COLS;
-  if (count === 3) return "grid-cols-3";
-  if (count === 2) return "grid-cols-2";
-  return "grid-cols-1";
+/* Cột lối đi hẹp cố định, cột ghế chia đều — khớp cấu hình lưới ở admin. */
+function gridTemplate(aisleColumns: boolean[]): string {
+  return aisleColumns
+    .map((isAisle) => (isAisle ? "var(--aisle-w)" : "1fr"))
+    .join(" ");
 }
 
 export function SeatMapPanel({ tripId }: { tripId: string }) {
   const selectedSeats = useBookingDetailStore((state) => state.selectedSeats);
   const { data, isPending, isError, refetch } = useTripSeats(tripId);
 
-  const rows = useMemo(() => toSeatRows(data ?? []), [data]);
+  const layout = useMemo(() => toSeatLayout(data ?? []), [data]);
+  const template = useMemo(
+    () => gridTemplate(layout.aisleColumns),
+    [layout.aisleColumns]
+  );
 
   const seatLabel = selectedSeats.length
     ? selectedSeats.map((seat) => seat.seatCode).join(", ")
@@ -65,18 +72,12 @@ export function SeatMapPanel({ tripId }: { tripId: string }) {
             <span aria-hidden="true" className={`${WHEEL_BASE} bottom-[60px] -right-[5px] max-[520px]:bottom-14 max-[520px]:-right-1`} />
             <span aria-hidden="true" className="mb-3 block h-5 rounded-[var(--radius-sm)] bg-[var(--sky-100)]" />
 
-            <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="mb-3 flex items-center gap-2">
               <span className="inline-flex items-center gap-2">
                 <SteeringWheel />
                 <span className="text-[10.5px] font-bold uppercase tracking-[0.08em] text-[var(--slate-500)]">
                   Tài xế
                 </span>
-              </span>
-              <span
-                aria-hidden="true"
-                className="rounded-[var(--radius-xs)] border-[1.5px] border-dashed border-[var(--orange-500)] bg-[var(--orange-50)] px-[6px] py-[3px] text-[9.5px] font-bold tracking-[0.09em] text-[var(--orange-700)] opacity-85"
-              >
-                Cửa lên xe
               </span>
             </div>
 
@@ -97,33 +98,32 @@ export function SeatMapPanel({ tripId }: { tripId: string }) {
                   Thử lại
                 </button>
               </div>
-            ) : !rows.length ? (
+            ) : !layout.rows.length ? (
               <p className="py-8 text-center text-[12.5px] font-semibold text-[var(--slate-500)]">
                 Chuyến này chưa có sơ đồ ghế.
               </p>
             ) : (
-              <div className="grid gap-2.5 max-[520px]:gap-[5px]">
-                {rows.map((row) => (
+              <div className={`grid gap-2.5 max-[520px]:gap-[5px] ${AISLE_VAR}`}>
+                {layout.rows.map((row) => (
                   <div
                     key={row.key}
-                    className={`grid items-stretch gap-2 max-[520px]:gap-[5px] ${rowGridClass(row.seats.length)}`}
+                    className={ROW_GRID}
+                    style={{ gridTemplateColumns: template }}
                   >
-                    {row.seats.length === 4 ? (
-                      <>
-                        <SeatButton seat={row.seats[0]} picked={selectedSeats.some((s) => s.id === row.seats[0].id)} />
-                        <SeatButton seat={row.seats[1]} picked={selectedSeats.some((s) => s.id === row.seats[1].id)} />
-                        <span aria-hidden="true" className={AISLE} />
-                        <SeatButton seat={row.seats[2]} picked={selectedSeats.some((s) => s.id === row.seats[2].id)} />
-                        <SeatButton seat={row.seats[3]} picked={selectedSeats.some((s) => s.id === row.seats[3].id)} />
-                      </>
-                    ) : (
-                      row.seats.map((seat) => (
+                    {row.cells.map((seat, index) =>
+                      seat ? (
                         <SeatButton
                           key={seat.id}
                           seat={seat}
                           picked={selectedSeats.some((s) => s.id === seat.id)}
                         />
-                      ))
+                      ) : (
+                        <span
+                          key={`empty-${index}`}
+                          aria-hidden="true"
+                          className={layout.aisleColumns[index] ? AISLE : undefined}
+                        />
+                      )
                     )}
                   </div>
                 ))}

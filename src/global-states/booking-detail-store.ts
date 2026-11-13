@@ -4,7 +4,7 @@ import { ApiError } from "@/api/types";
 import { useSessionStore } from "./session-store";
 
 /* Giới hạn số ghế mỗi lần đặt của màn chi tiết chuyến */
-export const MAX_SEATS = 4;
+export const MAX_SEATS = 8;
 
 export type DetailField = "name" | "phone" | "pickup" | "dropoff";
 

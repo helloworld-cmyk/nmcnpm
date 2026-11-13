@@ -4,7 +4,7 @@ import { IconClose } from "@/components/icons";
 import { useCancelModal } from "../_hooks/use-cancel-modal";
 
 const CARD_REF =
-  "relative flex max-h-[calc(100vh-40px)] w-[min(100%,460px)] flex-col overflow-auto rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] p-[30px] text-center shadow-[var(--shadow-lg)] animate-[panelIn_var(--dur)_var(--ease)] max-[400px]:p-[24px_18px]";
+  "scroll-area relative flex max-h-[calc(100vh-40px)] w-[min(100%,460px)] flex-col overflow-auto rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface)] p-[30px] text-center shadow-[var(--shadow-lg)] animate-[panelIn_var(--dur)_var(--ease)] max-[400px]:p-[24px_18px]";
 
 const FEE_ROW = "flex items-center justify-between gap-3.5 py-[5px] text-sm text-[var(--slate-600)]";
 

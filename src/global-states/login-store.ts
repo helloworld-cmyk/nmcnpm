@@ -26,9 +26,7 @@ type LoginState = {
   invalid: Partial<Record<LoginField, boolean>>;
   status: LoginStatus | null;
   loading: boolean;
-  remember: boolean;
   setField: (field: LoginField, value: string) => void;
-  setRemember: (value: boolean) => void;
   touchField: (field: LoginField) => void;
   submit: (onRedirect: () => void) => LoginSubmitResult;
   cancelFlow: () => void;
@@ -65,7 +63,6 @@ export const useLoginStore = create<LoginState>()((set, get) => ({
   invalid: {},
   status: null,
   loading: false,
-  remember: false,
 
   setField: (field, value) =>
     set((state) => {
@@ -80,8 +77,6 @@ export const useLoginStore = create<LoginState>()((set, get) => ({
         status: clearErrorStatus(state.status),
       };
     }),
-
-  setRemember: (value) => set({ remember: value }),
 
   /* Validate khi rời khỏi ô (không chờ tới lúc submit) */
   touchField: (field) => {
@@ -167,7 +162,6 @@ export const useLoginStore = create<LoginState>()((set, get) => ({
               invalid: {},
               status: null,
               loading: false,
-              remember: false,
             });
             onRedirect();
           }, REDIRECT_DELAY),

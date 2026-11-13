@@ -4,7 +4,6 @@ export type BookingDraft = {
   origin: string;
   destination: string;
   date: string;
-  seats: string;
 };
 
 export type BookingValidationError = {

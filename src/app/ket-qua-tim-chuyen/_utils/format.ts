@@ -20,12 +20,6 @@ export function formatDateLabel(isoDate: string | null): string {
   return `${weekdays[date.getDay()]}, ${dd}/${mm}/${date.getFullYear()}`;
 }
 
-export function formatSeatsLabel(seats: string): string {
-  const count = Number.parseInt(seats, 10);
-  if (!Number.isFinite(count) || count <= 0) return "";
-  return `${count} khách`;
-}
-
 export function formatTimeRange(from: number, to: number): string {
   if (from <= 0 && to >= 1440) return "Cả ngày";
   if (to >= 1440) return `Từ ${formatTime(from)}`;

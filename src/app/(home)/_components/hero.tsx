@@ -154,7 +154,7 @@ export function Hero() {
 
           <article
             aria-label="Ví dụ chuyến xe Hà Nội đi Hải Phòng"
-            className="group relative z-[2] w-[min(390px,100%)] p-[22px] border border-slate-200/90 rounded-[22px] bg-white shadow-[0_34px_70px_-34px_rgba(8,20,38,0.4),0_2px_6px_rgba(8,20,38,0.04)] before:content-[''] before:absolute before:inset-x-0 before:top-0 before:h-1 before:rounded-t-[22px] before:bg-[linear-gradient(90deg,var(--sky-500),var(--sky-300)_55%,var(--orange-500))] max-[640px]:p-[18px] max-[640px]:rounded-[20px]"
+            className="group relative z-[2] w-[min(390px,100%)] overflow-hidden p-[22px] border border-slate-200/90 rounded-[22px] bg-white shadow-[0_34px_70px_-34px_rgba(8,20,38,0.4),0_2px_6px_rgba(8,20,38,0.04)] before:content-[''] before:absolute before:inset-x-0 before:top-0 before:h-1 before:bg-[linear-gradient(90deg,var(--sky-500),var(--sky-300)_55%,var(--orange-500))] max-[640px]:p-[18px] max-[640px]:rounded-[20px]"
           >
             <div className="flex items-center justify-between gap-3 mb-[18px]">
               <span className="text-[10.5px] font-bold tracking-[0.12em] uppercase text-slate-500">
