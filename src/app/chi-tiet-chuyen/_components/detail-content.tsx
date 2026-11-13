@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { useTrip } from "@/api/trip/tanstack/use-trip";
+import { useTripSeatsAvailability } from "@/api/trip/tanstack/use-trip-seats-availability";
 import { useBookingDetailStore } from "@/global-states/booking-detail-store";
 import { BookingPanel } from "./booking-panel";
 import { DetailTrip } from "./detail-trip";
@@ -17,6 +18,7 @@ export function DetailContent() {
   const searchParams = useSearchParams();
   const tripId = (searchParams.get("trip") || "").trim();
   const { data: trip, isPending, isError, refetch } = useTrip(tripId);
+  const seatsQuery = useTripSeatsAvailability(tripId ? [tripId] : []);
   const setTripId = useBookingDetailStore((state) => state.setTripId);
 
   /* Ghi nhận chuyến đang chọn để luồng đặt chỗ biết giữ ghế cho chuyến nào */
@@ -83,7 +85,10 @@ export function DetailContent() {
 
   return (
     <>
-      <DetailTrip trip={trip} />
+      <DetailTrip
+        trip={trip}
+        availableSeats={seatsQuery.availability[trip.id] ?? null}
+      />
 
       <div className="mt-[clamp(26px,3.5vw,40px)] grid grid-cols-[minmax(0,1fr)_400px] items-start gap-[clamp(24px,3vw,40px)] max-[1024px]:grid-cols-1">
         <SeatMapPanel tripId={tripId} />

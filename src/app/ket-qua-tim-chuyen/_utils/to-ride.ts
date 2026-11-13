@@ -15,6 +15,7 @@ export type Ride = {
   duration: string;
   badgeText: string;
   badgeTone: RideBadgeTone;
+  salesStatus: TripSalesStatus;
   pickup: string;
   dropoff: string;
   companyName: string;
@@ -70,6 +71,27 @@ function avatarTone(id: string): AvatarTone {
   return AVATAR_TONES[sum % AVATAR_TONES.length];
 }
 
+/* Ghép số ghế trống vào badge khi chuyến đang mở bán; lỗi/chưa có dữ liệu thì giữ badge cũ */
+export function withSeatAvailability(
+  ride: Ride,
+  availableSeats: number | null,
+): Ride {
+  if (availableSeats === null || ride.salesStatus !== "OPEN") return ride;
+
+  if (availableSeats <= 0) {
+    return { ...ride, badgeText: "Hết ghế", badgeTone: "orange" };
+  }
+
+  return {
+    ...ride,
+    badgeText:
+      availableSeats <= 2
+        ? `Chỉ còn ${availableSeats} ghế`
+        : `Còn ${availableSeats} ghế`,
+    badgeTone: availableSeats <= 2 ? "orange" : "green",
+  };
+}
+
 /* Chuyển một chuyến từ API thành dữ liệu thẻ hiển thị */
 export function toRide(trip: TripResponse): Ride {
   const badge = BADGE_BY_SALES_STATUS[trip.salesStatus] ?? BADGE_BY_SALES_STATUS.OPEN;
@@ -83,6 +105,7 @@ export function toRide(trip: TripResponse): Ride {
     duration: durationLabel(trip.departureAt, trip.expectedArrivalAt),
     badgeText: badge.text,
     badgeTone: badge.tone,
+    salesStatus: trip.salesStatus,
     pickup: trip.originAreaName,
     dropoff: trip.destinationAreaName,
     companyName: trip.companyName,

@@ -4,13 +4,14 @@ import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAreas } from "@/api/area/tanstack/use-areas";
 import { useSearchTrips } from "@/api/trip/tanstack/use-search-trips";
+import { useTripSeatsAvailability } from "@/api/trip/tanstack/use-trip-seats-availability";
 import {
   PER_PAGE,
   filterRides,
   sortRides,
   useSearchFiltersStore,
 } from "@/global-states/search-filters-store";
-import { toRide } from "../_utils/to-ride";
+import { toRide, withSeatAvailability } from "../_utils/to-ride";
 import { findArea, tomorrowISO } from "../_utils/search-params";
 
 /*
@@ -67,6 +68,16 @@ export function useSearchResults() {
     (safePage - 1) * PER_PAGE,
     safePage * PER_PAGE,
   );
+  const showList =
+    !areaMissing && !areaError && tripsQuery.isSuccess && filtered.length > 0;
+
+  /* Ghép số ghế trống cho các chuyến đang hiển thị (tối đa PER_PAGE mỗi trang) */
+  const seatsQuery = useTripSeatsAvailability(
+    showList ? pageItems.map((ride) => ride.id) : [],
+  );
+  const pageItemsWithSeats = pageItems.map((ride) =>
+    withSeatAvailability(ride, seatsQuery.availability[ride.id] ?? null),
+  );
 
   const statusText = useMemo(() => {
     if (areaError) return "Không tải được danh mục địa điểm.";
@@ -96,12 +107,9 @@ export function useSearchResults() {
     safePage,
   ]);
 
-  const showList =
-    !areaMissing && !areaError && tripsQuery.isSuccess && filtered.length > 0;
-
   return {
     statusText,
-    pageItems,
+    pageItems: pageItemsWithSeats,
     pages,
     safePage,
     showList,

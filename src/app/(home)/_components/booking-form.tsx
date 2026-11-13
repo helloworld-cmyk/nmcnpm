@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useAreas } from "@/api/area/tanstack/use-areas";
 import {
   IconArrowRight,
@@ -56,6 +57,15 @@ export function BookingForm() {
 
   /* Danh mục địa điểm từ API cho gợi ý điểm đi/đến */
   const { data: areas } = useAreas();
+  const areaOptions = useMemo(() => {
+    const seen = new Set<string>();
+    return (areas ?? []).filter((area) => {
+      const key = area.name.trim().toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [areas]);
 
   const minDate = useTodayISO();
   const defaultDate = useTomorrowISO();
@@ -136,7 +146,7 @@ export function BookingForm() {
         </div>
 
         <datalist id="cityList">
-          {(areas ?? []).map((area) => (
+          {areaOptions.map((area) => (
             <option key={area.id} value={area.name} />
           ))}
         </datalist>

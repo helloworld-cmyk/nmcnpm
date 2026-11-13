@@ -49,3 +49,18 @@ export function salesBadge(salesStatus: string): {
   if (salesStatus === "PAUSED") return { text: "Tạm dừng bán", tone: "orange" };
   return { text: "Đã đóng bán", tone: "orange" };
 }
+
+/* Ưu tiên số ghế trống khi chuyến đang mở bán; chưa có dữ liệu thì dùng trạng thái bán */
+export function seatBadge(
+  salesStatus: string,
+  availableSeats: number | null,
+): { text: string; tone: "green" | "orange" } {
+  if (availableSeats === null || salesStatus !== "OPEN") {
+    return salesBadge(salesStatus);
+  }
+  if (availableSeats <= 0) return { text: "Hết ghế", tone: "orange" };
+  if (availableSeats <= 2) {
+    return { text: `Chỉ còn ${availableSeats} ghế`, tone: "orange" };
+  }
+  return { text: `Còn ${availableSeats} ghế`, tone: "green" };
+}

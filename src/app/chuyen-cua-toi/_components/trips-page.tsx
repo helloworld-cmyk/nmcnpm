@@ -1,20 +1,18 @@
 "use client";
 
 import { CancelModal } from "./cancel-modal";
+import { FilterEmptyState } from "./filter-empty-state";
+import { SkeletonCard } from "./skeleton-card";
+import { TabEmptyState } from "./tab-empty-state";
 import { TripCard } from "./trip-card";
 import { TripFilters } from "./trip-filters";
 import { TripTabs } from "./trip-tabs";
+import { TripsErrorState } from "./trips-error-state";
+import { TripsLoadingState } from "./trips-loading-state";
 import { TAB_IDS, useTripsView } from "../_hooks/use-trips-view";
 import { useTripsLoader } from "../_hooks/use-trips-loader";
 import type { Trip } from "../_data/trips";
 import type { TripTab } from "@/global-states/trips-store";
-import {
-  FilterEmptyState,
-  SkeletonCard,
-  TabEmptyState,
-  TripsErrorState,
-  TripsLoadingState,
-} from "./trip-states";
 
 const TRIP_LIST = "grid grid-cols-2 items-stretch gap-3.5 max-[640px]:grid-cols-1";
 

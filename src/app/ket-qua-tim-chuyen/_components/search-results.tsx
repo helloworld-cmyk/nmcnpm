@@ -1,13 +1,15 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { useSearchResults } from "../_hooks/use-search-results";
 import { useScrollToRegion } from "../_hooks/use-scroll-to-region";
 import { ResultsFilterBar } from "./results-filter-bar";
 import { RideCard } from "./ride-card";
 import { RideSkeletons } from "./ride-skeletons";
 import { SearchSummary } from "./search-summary";
-import { EmptyState, ErrorState, NoAreaState } from "./state-panels";
+import { EmptyState } from "./empty-state";
+import { ErrorState } from "./error-state";
+import { NoAreaState } from "./no-area-state";
+import { PageButton } from "./page-button";
 
 export function SearchResults() {
   const {
@@ -149,41 +151,5 @@ export function SearchResults() {
         </div>
       </section>
     </>
-  );
-}
-
-type PageButtonProps = {
-  children: ReactNode;
-  current?: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-  "aria-current"?: "page" | undefined;
-};
-
-function PageButton({
-  children,
-  current = false,
-  disabled = false,
-  onClick,
-  ...rest
-}: PageButtonProps) {
-  return (
-    <button
-      type="button"
-      className={`inline-flex h-11 min-w-11 items-center justify-center rounded-xl border px-3 font-body text-sm font-semibold transition-[background,border-color,color] duration-[var(--dur)] ease-[var(--ease)] ${
-        current
-          ? "border-[var(--sky-700)] bg-[var(--sky-700)] text-white"
-          : `border-line bg-white text-[var(--slate-600)] ${
-              disabled
-                ? "cursor-default opacity-45"
-                : "hover:border-[var(--sky-300)] hover:bg-[var(--sky-50)] hover:text-[var(--sky-800)]"
-            }`
-      }`}
-      disabled={disabled}
-      onClick={onClick}
-      {...rest}
-    >
-      {children}
-    </button>
   );
 }

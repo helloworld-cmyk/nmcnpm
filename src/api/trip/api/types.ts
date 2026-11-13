@@ -37,12 +37,10 @@ export type TripResponse = {
   updatedAt: string;
 };
 
-/* Ghế và tình trạng còn trống của chuyến. */
+/* Ghế và tình trạng còn trống của chuyến (xe một tầng, không phân hạng ghế). */
 export type TripSeatResponse = {
   id: string;
   seatCode: string;
-  seatClass: string;
-  deck: number;
   rowNo: number;
   columnNo: number;
   available: boolean;

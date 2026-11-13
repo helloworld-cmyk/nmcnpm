@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import { useTripSeats } from "@/api/trip/tanstack/use-trip-seats";
-import type { TripSeatResponse } from "@/api/trip/api/types";
 import {
   MAX_SEATS,
   useBookingDetailStore,
@@ -10,32 +9,8 @@ import {
 import { toSeatRows } from "../_utils/to-seat-rows";
 import { PanelHead } from "./panel-head";
 import { SeatArt } from "./seat-art";
-
-/* Vòng lái — SVG nhỏ vẽ riêng cho cabin tài xế */
-function SteeringWheel() {
-  return (
-    <svg aria-hidden="true" className="h-5 w-5 text-[var(--sky-600)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} focusable="false">
-      <circle cx="12" cy="12" r="8.4" />
-      <circle cx="12" cy="12" r="2.4" />
-      <path d="M12 14.4v6M9.7 13.4l-5.3 2.5M14.3 13.4l5.3 2.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-/* Nền ghế đổi màu qua biến CSS --seat-*: mặc định trống */
-const SEAT_BASE =
-  "grid justify-items-center gap-[3px] min-h-11 px-1 py-1.5 rounded-[var(--radius-xs)] transition-[transform,background,box-shadow] duration-[var(--dur)] ease-[var(--ease)] [--seat-arm:var(--slate-300)] [--seat-head:var(--slate-200)] [--seat-back:var(--surface)] [--seat-cushion:var(--slate-200)] [--seat-line:var(--slate-300)]";
-
-const SEAT_FREE =
-  "cursor-pointer hover:[--seat-back:var(--sky-50)] hover:[--seat-head:var(--sky-100)] hover:[--seat-cushion:var(--sky-100)] hover:[--seat-line:var(--sky-300)] hover:[--seat-arm:var(--sky-300)] hover:bg-[var(--sky-50)] hover:-translate-y-px";
-
-const SEAT_PICKED =
-  "cursor-pointer bg-[var(--sky-50)] shadow-[0_10px_20px_-12px_rgba(3,105,161,0.95)] [--seat-back:var(--sky-700)] [--seat-head:var(--sky-800)] [--seat-cushion:var(--sky-600)] [--seat-arm:var(--sky-800)] [--seat-line:var(--sky-800)] hover:[--seat-back:var(--sky-800)]";
-
-const SEAT_TAKEN =
-  "cursor-not-allowed [--seat-back:var(--slate-200)] [--seat-head:var(--slate-200)] [--seat-cushion:var(--slate-200)] [--seat-arm:var(--slate-200)] [--seat-line:var(--slate-200)]";
-
-const SEAT_NUM = "font-heading text-xs font-bold leading-[1.1] text-[var(--ink)] max-[520px]:text-[11px]";
+import { SeatButton } from "./seat-button";
+import { SteeringWheel } from "./steering-wheel";
 
 /* Biến màu cho ghế trong chú giải */
 const LEGEND_TONES = {
@@ -51,31 +26,6 @@ const AISLE =
   "relative min-h-11 before:content-[''] before:absolute before:top-1.5 before:bottom-1.5 before:left-1/2 before:w-0.5 before:-translate-x-1/2 before:opacity-55 before:bg-[repeating-linear-gradient(to_bottom,var(--slate-300)_0_4px,transparent_4px_8px)]";
 
 const WHEEL_BASE = "absolute w-[7px] h-5 rounded bg-[var(--slate-400)] opacity-80 max-[520px]:w-1.5 max-[520px]:h-4";
-
-function SeatButton({ seat, picked }: { seat: TripSeatResponse; picked: boolean }) {
-  const toggleSeat = useBookingDetailStore((state) => state.toggleSeat);
-
-  if (!seat.available) {
-    return (
-      <button type="button" className={`${SEAT_BASE} ${SEAT_TAKEN}`} disabled aria-label={`Ghế ${seat.seatCode} — đã bị đặt`}>
-        <SeatArt className="h-[54px] w-10 rotate-180 max-[520px]:h-[38px] max-[520px]:w-[28px]" />
-        <span className={`${SEAT_NUM} text-[var(--slate-400)] line-through`}>{seat.seatCode}</span>
-      </button>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      className={`${SEAT_BASE} ${picked ? SEAT_PICKED : SEAT_FREE}`}
-      aria-pressed={picked}
-      onClick={() => toggleSeat({ id: seat.id, seatCode: seat.seatCode })}
-    >
-      <SeatArt className="h-[54px] w-10 rotate-180 max-[520px]:h-[38px] max-[520px]:w-[28px]" />
-      <span className={`${SEAT_NUM} ${picked ? "text-[var(--sky-800)]" : ""}`}>{seat.seatCode}</span>
-    </button>
-  );
-}
 
 function rowGridClass(count: number): string {
   if (count === 4) return GRID_COLS;

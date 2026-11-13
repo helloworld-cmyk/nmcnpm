@@ -1,5 +1,6 @@
 import { Reveal } from "@/components/ui/reveal";
-import { IconCheck, IconStar } from "@/components/icons";
+import { IconCheck } from "@/components/icons";
+import { Stars } from "./stars";
 
 const TESTIMONIALS = [
   {
@@ -30,20 +31,6 @@ const TESTIMONIALS = [
     delay: "160ms",
   },
 ];
-
-function Stars({ className = "" }: { className?: string }) {
-  return (
-    <div
-      className={`flex gap-0.5 text-amber-500 ${className}`}
-      role="img"
-      aria-label="5 trên 5 sao"
-    >
-      {Array.from({ length: 5 }, (_, index) => (
-        <IconStar className="icon size-[15px]" key={index} />
-      ))}
-    </div>
-  );
-}
 
 export function TestimonialsSection() {
   return (

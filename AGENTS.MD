@@ -271,6 +271,34 @@ render từ state thay cho gán `.textContent`, và class gom vào hằng số k
 - Zustand chỉ giữ client state (form, filter, UI); không duplicate dữ liệu
   server vào store nếu chỉ để hiển thị.
 
+### 6.4. Ghép dữ liệu từ nhiều API (response join)
+
+Khi response của một endpoint **thiếu trường cần hiển thị**, được phép gọi thêm
+API liên quan để ghép (join) vào response, nhưng phải theo các quy tắc sau:
+
+- Chỉ ghép khi trường đó **thực sự cần cho UI/logic**. Nếu response chính đã có
+  hoặc suy ra an toàn được từ dữ liệu sẵn có thì không gọi thêm API.
+- Đặt logic ghép ở tầng endpoint/hook trong `src/api/<domain>/`, KHÔNG ghép rải
+  trong component/page. Trả về type đã ghép rõ ràng (vd.
+  `TripWithSeatsResponse`) để tầng UI không phải biết nhiều nguồn dữ liệu.
+- Ghép song song bằng `Promise.all` (nhiều id) hoặc `useQueries` (nhiều query);
+  TUYỆT ĐỐI tránh gọi tuần tự trong vòng lặp (N+1). Với danh sách dài, chỉ ghép
+  cho trang đang hiển thị hoặc tận dụng cache/`queryKey` của react-query.
+- Query phụ phải có `queryKey` theo id/tham số và dùng lại cache; không gọi lại
+  dữ liệu đã có trong cache.
+- Xử lý lỗi API phụ: nếu trường ghép là **bắt buộc** → coi cả query là lỗi; nếu
+  là **tùy chọn** → giữ response chính, bỏ trống/ẩn field và không làm hỏng màn
+  hình.
+- Không lạm dụng ghép ở client: nếu cùng một phép ghép lặp ở nhiều màn hoặc
+  gây quá nhiều request, đề xuất backend bổ sung field/bulk endpoint thay vì
+  ghép.
+- Dữ liệu ghép vẫn là server state: để react-query quản lý, KHÔNG copy vào
+  Zustand chỉ để hiển thị (xem §6.3).
+
+Ví dụ đã áp dụng trong codebase: `loginAPI` + `getMeAPI` khi đăng nhập
+(`src/global-states/login-store.ts`), `useAreas` + `useSearchTrips` ở màn kết
+quả tìm chuyến (`src/app/ket-qua-tim-chuyen/_hooks/use-search-results.ts`).
+
 ---
 
 ## 7. Cấu trúc thư mục dự án

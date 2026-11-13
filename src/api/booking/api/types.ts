@@ -45,7 +45,6 @@ export type TicketResponse = {
   dropoffAddress: string;
   seatId: string;
   seatCode: string;
-  seatClass: string;
   fareAmount: number;
   status: TicketStatus;
   passengerTripStatus: PassengerTripStatus;

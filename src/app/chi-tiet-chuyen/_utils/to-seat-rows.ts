@@ -2,24 +2,19 @@ import type { TripSeatResponse } from "@/api/trip/api/types";
 
 export type SeatRow = { key: string; seats: TripSeatResponse[] };
 
-/* Gom ghế API thành từng hàng theo tầng + số hàng, sắp theo cột */
+/* Gom ghế API thành từng hàng theo số hàng (xe một tầng), sắp theo cột */
 export function toSeatRows(seats: TripSeatResponse[]): SeatRow[] {
-  const groups = new Map<string, TripSeatResponse[]>();
+  const groups = new Map<number, TripSeatResponse[]>();
   for (const seat of seats) {
-    const key = `${seat.deck}-${seat.rowNo}`;
-    const list = groups.get(key);
+    const list = groups.get(seat.rowNo);
     if (list) list.push(seat);
-    else groups.set(key, [seat]);
+    else groups.set(seat.rowNo, [seat]);
   }
 
   return [...groups.entries()]
-    .sort((a, b) => {
-      const [deckA, rowA] = a[0].split("-").map(Number);
-      const [deckB, rowB] = b[0].split("-").map(Number);
-      return deckA - deckB || rowA - rowB;
-    })
-    .map(([key, list]) => ({
-      key,
+    .sort((a, b) => a[0] - b[0])
+    .map(([rowNo, list]) => ({
+      key: String(rowNo),
       seats: list.slice().sort((a, b) => a.columnNo - b.columnNo),
     }));
 }
