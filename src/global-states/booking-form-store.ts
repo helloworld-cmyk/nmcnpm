@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { AreaResponse } from "@/api/area/api/get-areas";
 import {
   validateBooking,
   tomorrowISO,
@@ -22,6 +23,9 @@ export type SearchResult =
 type BookingFormState = {
   origin: string;
   destination: string;
+  /* Id địa điểm đã chọn từ gợi ý API; null khi người dùng gõ tự do */
+  originAreaId: string | null;
+  destinationAreaId: string | null;
   date: string | null;
   seats: string;
   invalidField: BookingField | null;
@@ -30,6 +34,8 @@ type BookingFormState = {
   prefillId: number;
   setOrigin: (value: string) => void;
   setDestination: (value: string) => void;
+  pickOrigin: (area: AreaResponse) => void;
+  pickDestination: (area: AreaResponse) => void;
   setDate: (value: string) => void;
   setSeats: (value: string) => void;
   swapRoute: () => void;
@@ -42,6 +48,8 @@ let swapTimer: number | null = null;
 export const useBookingFormStore = create<BookingFormState>()((set, get) => ({
   origin: "",
   destination: "",
+  originAreaId: null,
+  destinationAreaId: null,
   date: null,
   seats: "1",
   invalidField: null,
@@ -49,9 +57,11 @@ export const useBookingFormStore = create<BookingFormState>()((set, get) => ({
   swapping: false,
   prefillId: 0,
 
+  /* Gõ tự do: bỏ id đã chọn trước đó để không gửi nhầm địa điểm cũ */
   setOrigin: (value) =>
     set((state) => ({
       origin: value,
+      originAreaId: null,
       invalidField: state.invalidField === "origin" ? null : state.invalidField,
       status: state.status?.type === "error" ? null : state.status,
     })),
@@ -59,6 +69,25 @@ export const useBookingFormStore = create<BookingFormState>()((set, get) => ({
   setDestination: (value) =>
     set((state) => ({
       destination: value,
+      destinationAreaId: null,
+      invalidField:
+        state.invalidField === "destination" ? null : state.invalidField,
+      status: state.status?.type === "error" ? null : state.status,
+    })),
+
+  /* Chọn từ gợi ý API: lưu cả tên hiển thị lẫn id để gọi /trips chính xác */
+  pickOrigin: (area) =>
+    set((state) => ({
+      origin: area.name,
+      originAreaId: area.id,
+      invalidField: state.invalidField === "origin" ? null : state.invalidField,
+      status: state.status?.type === "error" ? null : state.status,
+    })),
+
+  pickDestination: (area) =>
+    set((state) => ({
+      destination: area.name,
+      destinationAreaId: area.id,
       invalidField:
         state.invalidField === "destination" ? null : state.invalidField,
       status: state.status?.type === "error" ? null : state.status,
@@ -74,11 +103,13 @@ export const useBookingFormStore = create<BookingFormState>()((set, get) => ({
   setSeats: (value) => set({ seats: value }),
 
   swapRoute: () => {
-    const { origin, destination } = get();
+    const { origin, destination, originAreaId, destinationAreaId } = get();
 
     set({
       origin: destination,
       destination: origin,
+      originAreaId: destinationAreaId,
+      destinationAreaId: originAreaId,
       invalidField: null,
       status: {
         type: "info",
@@ -100,6 +131,9 @@ export const useBookingFormStore = create<BookingFormState>()((set, get) => ({
     set((state) => ({
       origin: detail.from,
       destination: detail.to,
+      /* Tuyến gợi ý chỉ có tên, chưa biết id — để trống cho tới khi người dùng chọn */
+      originAreaId: null,
+      destinationAreaId: null,
       invalidField: null,
       status: {
         type: "info",
@@ -109,7 +143,8 @@ export const useBookingFormStore = create<BookingFormState>()((set, get) => ({
     })),
 
   startSearch: () => {
-    const { origin, destination, date, seats } = get();
+    const { origin, destination, originAreaId, destinationAreaId, date, seats } =
+      get();
     const dateValue = date ?? tomorrowISO();
 
     const error = validateBooking({ origin, destination, date: dateValue, seats });
@@ -129,6 +164,10 @@ export const useBookingFormStore = create<BookingFormState>()((set, get) => ({
       date: dateValue,
       seats,
     });
+    /* Gửi kèm id địa điểm đã chọn để màn kết quả gọi /trips không cần đoán theo tên */
+    if (originAreaId) params.set("fromId", originAreaId);
+    if (destinationAreaId) params.set("toId", destinationAreaId);
+
     return { ok: true, query: params.toString() };
   },
 }));

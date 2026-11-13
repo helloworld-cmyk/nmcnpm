@@ -1,16 +1,14 @@
 "use client";
 
-import { useMemo } from "react";
-import { useAreas } from "@/api/area/tanstack/use-areas";
 import {
   IconArrowRight,
   IconCalendar,
-  IconPin,
   IconShield,
   IconSwap,
   IconUsers,
 } from "@/components/icons";
 import { useBookingFormStore } from "@/global-states/booking-form-store";
+import { AreaField } from "./area-field";
 import { useBookingFormFields } from "../_hooks/use-booking-form-fields";
 import { useBookingFormSubmit } from "../_hooks/use-booking-form-submit";
 import { useTodayISO, useTomorrowISO } from "../_hooks/use-current-dates";
@@ -51,21 +49,11 @@ export function BookingForm() {
   const prefillId = useBookingFormStore((state) => state.prefillId);
   const setOrigin = useBookingFormStore((state) => state.setOrigin);
   const setDestination = useBookingFormStore((state) => state.setDestination);
+  const pickOrigin = useBookingFormStore((state) => state.pickOrigin);
+  const pickDestination = useBookingFormStore((state) => state.pickDestination);
   const setDate = useBookingFormStore((state) => state.setDate);
   const setSeats = useBookingFormStore((state) => state.setSeats);
   const swapRoute = useBookingFormStore((state) => state.swapRoute);
-
-  /* Danh mục địa điểm từ API cho gợi ý điểm đi/đến */
-  const { data: areas } = useAreas();
-  const areaOptions = useMemo(() => {
-    const seen = new Set<string>();
-    return (areas ?? []).filter((area) => {
-      const key = area.name.trim().toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }, [areas]);
 
   const minDate = useTodayISO();
   const defaultDate = useTomorrowISO();
@@ -85,26 +73,20 @@ export function BookingForm() {
       onSubmit={handleSubmit}
     >
       <div className="relative grid grid-cols-2 gap-11 max-[640px]:grid-cols-1 max-[640px]:gap-3">
-        <div>
-          <label className={FIELD_LABEL} htmlFor="origin">Điểm đi</label>
-          <div className={FIELD_CONTROL}>
-            <IconPin className={FIELD_ICON} />
-            <input
-              className={fieldInputClass(invalidField === "origin")}
-              type="text"
-              id="origin"
-              name="origin"
-              ref={registerField("origin")}
-              list="cityList"
-              placeholder="VD: Hà Nội"
-              autoComplete="off"
-              required
-              value={origin}
-              aria-invalid={invalidField === "origin" ? true : undefined}
-              onChange={(event) => setOrigin(event.target.value)}
-            />
-          </div>
-        </div>
+        <AreaField
+          id="origin"
+          name="origin"
+          label="Điểm đi"
+          placeholder="VD: Hà Nội"
+          value={origin}
+          invalid={invalidField === "origin"}
+          labelClassName={FIELD_LABEL}
+          iconClassName={FIELD_ICON}
+          inputClassName={fieldInputClass(invalidField === "origin")}
+          inputRef={registerField("origin")}
+          onInput={setOrigin}
+          onPick={pickOrigin}
+        />
 
         <button
           type="button"
@@ -120,36 +102,20 @@ export function BookingForm() {
           <IconSwap className="icon size-[17px]" />
         </button>
 
-        <div>
-          <label className={FIELD_LABEL} htmlFor="destination">
-            Điểm đến
-          </label>
-          <div className={FIELD_CONTROL}>
-            <IconPin className={FIELD_ICON} />
-            <input
-              className={fieldInputClass(invalidField === "destination")}
-              type="text"
-              id="destination"
-              name="destination"
-              ref={registerField("destination")}
-              list="cityList"
-              placeholder="VD: Hải Phòng"
-              autoComplete="off"
-              required
-              value={destination}
-              aria-invalid={
-                invalidField === "destination" ? true : undefined
-              }
-              onChange={(event) => setDestination(event.target.value)}
-            />
-          </div>
-        </div>
-
-        <datalist id="cityList">
-          {areaOptions.map((area) => (
-            <option key={area.id} value={area.name} />
-          ))}
-        </datalist>
+        <AreaField
+          id="destination"
+          name="destination"
+          label="Điểm đến"
+          placeholder="VD: Hải Phòng"
+          value={destination}
+          invalid={invalidField === "destination"}
+          labelClassName={FIELD_LABEL}
+          iconClassName={FIELD_ICON}
+          inputClassName={fieldInputClass(invalidField === "destination")}
+          inputRef={registerField("destination")}
+          onInput={setDestination}
+          onPick={pickDestination}
+        />
       </div>
 
       <div className="grid grid-cols-[1fr_1fr_auto] gap-3 items-end mt-3 max-[768px]:grid-cols-2 max-[520px]:grid-cols-1">

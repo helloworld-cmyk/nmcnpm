@@ -23,6 +23,9 @@ export function useSearchResults() {
   const searchParams = useSearchParams();
   const from = (searchParams.get("from") || "").trim();
   const to = (searchParams.get("to") || "").trim();
+  const fromId = (searchParams.get("fromId") || "").trim();
+  const toId = (searchParams.get("toId") || "").trim();
+  const hasAreaIds = Boolean(fromId && toId);
   const dateParam = searchParams.get("date") || "";
   const departureDate = /^\d{4}-\d{2}-\d{2}$/.test(dateParam)
     ? dateParam
@@ -35,21 +38,34 @@ export function useSearchResults() {
   const goToPage = useSearchFiltersStore((state) => state.goToPage);
   const resetFilters = useSearchFiltersStore((state) => state.resetFilters);
 
-  /* Đổi tên điểm đi/đến trên URL thành area id qua danh mục địa điểm */
-  const areasQuery = useAreas();
+  /*
+   * Ưu tiên id địa điểm do form tìm chuyến gửi kèm. Chỉ khi URL thiếu id
+   * (link trực tiếp hoặc tuyến gợi ý) mới nạp danh mục để suy id theo tên.
+   */
+  const areasQuery = useAreas(undefined, { enabled: !hasAreaIds });
   const areas = areasQuery.data;
-  const originArea = useMemo(() => findArea(areas, from), [areas, from]);
-  const destinationArea = useMemo(() => findArea(areas, to), [areas, to]);
-  const areaMissing = areas !== undefined && (!originArea || !destinationArea);
-  const areaError = areasQuery.isError;
+  const originArea = useMemo(
+    () => (hasAreaIds ? undefined : findArea(areas, from)),
+    [hasAreaIds, areas, from],
+  );
+  const destinationArea = useMemo(
+    () => (hasAreaIds ? undefined : findArea(areas, to)),
+    [hasAreaIds, areas, to],
+  );
+
+  const originAreaId = fromId || originArea?.id || "";
+  const destinationAreaId = toId || destinationArea?.id || "";
+
+  /* Có id thì sẵn sàng ngay; suy theo tên thì phải chờ danh mục tải xong mới kết luận */
+  const areasLoading = !hasAreaIds && areasQuery.isPending;
+  const areasSettled = hasAreaIds || areas !== undefined;
+  const areaMissing =
+    areasSettled && (!originAreaId || !destinationAreaId);
+  const areaError = !hasAreaIds && areasQuery.isError;
 
   const tripsQuery = useSearchTrips(
-    {
-      originAreaId: originArea?.id ?? "",
-      destinationAreaId: destinationArea?.id ?? "",
-      departureDate,
-    },
-    { enabled: Boolean(originArea && destinationArea) },
+    { originAreaId, destinationAreaId, departureDate },
+    { enabled: Boolean(originAreaId && destinationAreaId) },
   );
 
   const rides = useMemo(
@@ -82,7 +98,7 @@ export function useSearchResults() {
   const statusText = useMemo(() => {
     if (areaError) return "Không tải được danh mục địa điểm.";
     if (areaMissing) return "Chưa nhận diện được địa điểm bạn nhập.";
-    if (areasQuery.isPending || tripsQuery.isPending)
+    if (areasLoading || tripsQuery.isPending)
       return "Đang tải chuyến phù hợp...";
     if (tripsQuery.isError) return "Không tải được danh sách chuyến.";
     if (!filtered.length)
@@ -98,7 +114,7 @@ export function useSearchResults() {
   }, [
     areaError,
     areaMissing,
-    areasQuery.isPending,
+    areasLoading,
     tripsQuery.isPending,
     tripsQuery.isError,
     filtered.length,
@@ -115,7 +131,7 @@ export function useSearchResults() {
     showList,
     areaError,
     areaMissing,
-    isPending: areasQuery.isPending || tripsQuery.isPending,
+    isPending: areasLoading || tripsQuery.isPending,
     isTripsPending: tripsQuery.isPending,
     isTripsError: tripsQuery.isError,
     isTripsSuccess: tripsQuery.isSuccess,

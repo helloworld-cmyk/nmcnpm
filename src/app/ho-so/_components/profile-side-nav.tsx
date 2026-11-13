@@ -3,8 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useLogout } from "@/api/auth/tanstack/use-logout";
 import { IconLogout, IconRoute, IconUser } from "@/components/icons";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { STORAGE_KEYS } from "@/config/constants/storage";
+import { removeItem } from "@/config/storage";
 import { useSessionStore } from "@/global-states/session-store";
 
 const NAV_ITEM =
@@ -27,12 +30,20 @@ const NAV_ICON_EXIT =
 export function ProfileSideNav() {
   const router = useRouter();
   const clearSession = useSessionStore((state) => state.clearSession);
+  const logoutMutation = useLogout();
   const [logoutOpen, setLogoutOpen] = useState(false);
 
   const confirmLogout = () => {
-    clearSession();
     setLogoutOpen(false);
-    router.push("/");
+    /* Thu hồi phiên trên server (không chặn UI) rồi dọn token + phiên local */
+    logoutMutation.mutate(undefined, {
+      onSettled: () => {
+        removeItem(STORAGE_KEYS.accessToken);
+        removeItem(STORAGE_KEYS.refreshToken);
+        clearSession();
+        router.push("/");
+      },
+    });
   };
 
   return (
