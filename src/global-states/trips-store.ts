@@ -1,7 +1,10 @@
 import { create } from "zustand";
 import { cancelBookingAPI } from "@/api/booking/api/cancel-booking";
 import { confirmBookingAPI } from "@/api/booking/api/confirm-booking";
-import { getMyBookingsAPI } from "@/api/booking/api/get-my-bookings";
+import { getMyCancelledBookingsAPI } from "@/api/booking/api/get-my-cancelled-bookings";
+import { getMyCompletedBookingsAPI } from "@/api/booking/api/get-my-completed-bookings";
+import { getMyInProgressBookingsAPI } from "@/api/booking/api/get-my-in-progress-bookings";
+import { getMyUpcomingBookingsAPI } from "@/api/booking/api/get-my-upcoming-bookings";
 import { ApiError } from "@/api/types";
 import type { Trip } from "@/app/chuyen-cua-toi/_data/trips";
 import { toTrip } from "@/app/chuyen-cua-toi/_utils/to-trip";
@@ -11,9 +14,6 @@ export type TripTab = "sap-toi" | "dang-di" | "hoan-thanh" | "da-huy";
 export type TripsStatus = "ready" | "loading" | "error";
 
 export const COMPLETED_PAGE_SIZE = 5;
-
-/* Số đặt vé tải về một lần cho màn "Chuyến của tôi" */
-const BOOKINGS_PAGE_SIZE = 100;
 
 type TripsState = {
   trips: Trip[];
@@ -65,13 +65,26 @@ export const useTripsStore = create<TripsState>()((set, get) => ({
   confirmingId: null,
   actionError: null,
 
-  /* Tải danh sách đặt vé của khách hàng từ API */
+  /*
+   * Tải danh sách đặt vé của khách hàng theo 4 nhóm trạng thái chuyến
+   * (sắp tới, đang đi, hoàn thành, đã hủy) rồi gộp lại cho màn "Chuyến của tôi".
+   */
   loadBookings: async () => {
     set({ status: "loading", actionError: null });
     try {
-      const page = await getMyBookingsAPI({ size: BOOKINGS_PAGE_SIZE });
+      const [upcoming, inProgress, completed, cancelled] = await Promise.all([
+        getMyUpcomingBookingsAPI(),
+        getMyInProgressBookingsAPI(),
+        getMyCompletedBookingsAPI(),
+        getMyCancelledBookingsAPI(),
+      ]);
       set({
-        trips: page.content.map(toTrip),
+        trips: [
+          ...upcoming,
+          ...inProgress,
+          ...completed,
+          ...cancelled,
+        ].map(toTrip),
         status: "ready",
         completedVisible: COMPLETED_PAGE_SIZE,
       });

@@ -46,6 +46,11 @@ export type TicketResponse = {
   seatId: string;
   seatCode: string;
   fareAmount: number;
+  /* true khi tài xế đã xác nhận thu tiền; null khi chưa có dữ liệu thu tiền. */
+  paymentCollected: boolean | null;
+  collectedAmount: number | null;
+  collectedAt: string | null;
+  collectedBy: string | null;
   status: TicketStatus;
   passengerTripStatus: PassengerTripStatus;
   createdAt: string;

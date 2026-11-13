@@ -33,6 +33,10 @@ export type TripResponse = {
   baseFareAmount: number;
   status: TripStatus;
   salesStatus: TripSalesStatus;
+  /* Thông tin hủy chuyến do hãng thực hiện (null khi chuyến chưa bị hủy). */
+  cancelledAt: string | null;
+  cancellationReason: string | null;
+  cancellationDescription: string | null;
   createdAt: string;
   updatedAt: string;
 };
