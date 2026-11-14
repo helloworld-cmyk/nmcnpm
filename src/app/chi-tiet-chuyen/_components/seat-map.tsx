@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useTripSeats } from "@/api/trip/tanstack/use-trip-seats";
 import {
   MAX_SEATS,
@@ -39,7 +39,19 @@ function gridTemplate(aisleColumns: boolean[]): string {
 
 export function SeatMapPanel({ tripId }: { tripId: string }) {
   const selectedSeats = useBookingDetailStore((state) => state.selectedSeats);
+  const pendingBookingId = useBookingDetailStore(
+    (state) => state.pendingBookingId,
+  );
+  const pruneSeats = useBookingDetailStore((state) => state.pruneSeats);
   const { data, isPending, isError, refetch } = useTripSeats(tripId);
+
+  /* Ghế vừa bị giữ/đặt ở nơi khác thì bỏ khỏi lựa chọn hiện tại */
+  useEffect(() => {
+    if (!data) return;
+    pruneSeats(
+      data.filter((seat) => seat.available).map((seat) => seat.id),
+    );
+  }, [data, pendingBookingId, pruneSeats]);
 
   const layout = useMemo(() => toSeatLayout(data ?? []), [data]);
   const template = useMemo(

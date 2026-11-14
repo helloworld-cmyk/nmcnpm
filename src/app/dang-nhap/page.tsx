@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { GuestGuard } from "@/components/auth";
 import { SiteShell } from "@/components/layout/site-shell";
 import { LoginForm } from "./_components/login-form";
 
@@ -11,7 +12,9 @@ export const metadata: Metadata = {
 export default function DangNhapPage() {
   return (
     <SiteShell>
-      <LoginForm />
+      <GuestGuard>
+        <LoginForm />
+      </GuestGuard>
     </SiteShell>
   );
 }

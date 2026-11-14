@@ -13,13 +13,14 @@ import { useSessionStore } from "@/global-states/session-store";
  */
 export function SessionSync() {
   const setUser = useSessionStore((state) => state.setUser);
+  const markReady = useSessionStore((state) => state.markReady);
 
   /* Đọc token lúc khởi tạo (SSR-safe nhờ helper trả null khi không có window) */
   const [hasToken] = useState(() =>
     Boolean(getItem(STORAGE_KEYS.accessToken)),
   );
 
-  const { data, error } = useMe({
+  const { data, error, isFetched } = useMe({
     enabled: hasToken,
     retry: false,
     staleTime: 5 * 60_000,
@@ -46,6 +47,12 @@ export function SessionSync() {
     removeItem(STORAGE_KEYS.refreshToken);
     setUser(null);
   }, [error, setUser]);
+
+  /* Chạy sau 2 effect trên: không có token → chắc chắn là khách;
+   * có token → chờ /me xong rồi mới chốt trạng thái phiên */
+  useEffect(() => {
+    if (!hasToken || isFetched) markReady();
+  }, [hasToken, isFetched, markReady]);
 
   return null;
 }

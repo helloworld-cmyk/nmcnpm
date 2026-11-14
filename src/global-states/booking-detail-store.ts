@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { cancelBookingAPI } from "@/api/booking/api/cancel-booking";
 import { confirmBookingAPI } from "@/api/booking/api/confirm-booking";
 import { createBookingAPI } from "@/api/booking/api/create-booking";
+import { getQueryClient } from "@/api/query-client";
 import { ApiError } from "@/api/types";
 import { useSessionStore } from "./session-store";
 
@@ -46,12 +47,16 @@ type BookingDetailState = {
   confirmError: string | null;
   setTripId: (tripId: string | null) => void;
   toggleSeat: (seat: SelectedSeat) => void;
+  /* Bỏ khỏi lựa chọn những ghế không còn trống trên sơ đồ mới tải về */
+  pruneSeats: (availableSeatIds: string[]) => void;
   setField: (field: DetailField, value: string) => void;
   setAgree: (value: boolean) => void;
   submit: () => DetailSubmitResult;
   confirmPending: (onDone: (bookingId: string) => void) => void;
   cancelConfirm: () => void;
   cancelFlow: () => void;
+  /* Xoá toàn bộ dữ liệu phiên đặt chỗ (dùng khi đã đặt thành công) */
+  reset: () => void;
 };
 
 const INITIAL_VALUES: DetailValues = {
@@ -74,6 +79,20 @@ function errorMessage(error: unknown): string {
   return "Không thể đặt chỗ, vui lòng thử lại.";
 }
 
+function clearTotalTimer() {
+  if (totalTimer === null) return;
+  window.clearTimeout(totalTimer);
+  totalTimer = null;
+}
+
+/* Đánh dấu sơ đồ ghế của chuyến là cũ để lần hiển thị sau tải lại từ API */
+function invalidateSeats(tripId: string | null) {
+  if (!tripId) return;
+  void getQueryClient().invalidateQueries({
+    queryKey: ["trip-seats", tripId],
+  });
+}
+
 export const useBookingDetailStore = create<BookingDetailState>()(
   (set, get) => ({
     tripId: null,
@@ -89,12 +108,32 @@ export const useBookingDetailStore = create<BookingDetailState>()(
     confirmError: null,
 
     /* Khi đổi sang chuyến khác thì bỏ ghế đã chọn từ chuyến trước */
-    setTripId: (tripId) =>
-      set((state) =>
-        state.tripId === tripId
-          ? {}
-          : { tripId, selectedSeats: [], status: null, totalLoading: false },
-      ),
+    setTripId: (tripId) => {
+      const state = get();
+      if (state.tripId === tripId) return;
+
+      /* Đang giữ ghế của chuyến cũ → nhả đơn giữ chỗ để không treo ghế */
+      if (state.pendingBookingId && !state.confirming) {
+        void cancelBookingAPI(state.pendingBookingId).catch(() => {});
+      }
+      clearTotalTimer();
+
+      const { name, phone } = state.values;
+      set({
+        tripId,
+        selectedSeats: [],
+        /* Giữ tên/SĐT liên hệ, bỏ địa chỉ đón/trả vì thuộc chuyến cũ */
+        values: { ...INITIAL_VALUES, name, phone },
+        agree: false,
+        invalid: {},
+        status: null,
+        submitting: false,
+        totalLoading: false,
+        pendingBookingId: null,
+        confirming: false,
+        confirmError: null,
+      });
+    },
 
     toggleSeat: (seat) => {
       const { selectedSeats, status } = get();
@@ -130,6 +169,36 @@ export const useBookingDetailStore = create<BookingDetailState>()(
       }, 480);
     },
 
+    /*
+     * Đồng bộ lựa chọn với sơ đồ ghế mới: ghế đã bị người khác giữ/đặt thì bỏ
+     * khỏi lựa chọn để không gửi lên server ghế không còn trống. Bỏ qua khi
+     * đang có đơn giữ chỗ của chính mình (ghế của mình cũng báo không trống).
+     */
+    pruneSeats: (availableSeatIds) => {
+      const { selectedSeats, pendingBookingId } = get();
+      if (pendingBookingId || !selectedSeats.length) return;
+
+      const available = new Set(availableSeatIds);
+      const dropped = selectedSeats.filter((seat) => !available.has(seat.id));
+      if (!dropped.length) return;
+
+      set((state) => ({
+        selectedSeats: state.selectedSeats.filter((seat) =>
+          available.has(seat.id),
+        ),
+        /* Giữ nguyên thông báo lỗi đang hiển thị nếu có */
+        status:
+          state.status?.type === "error"
+            ? state.status
+            : {
+                type: "info",
+                message: `Ghế ${dropped
+                  .map((seat) => seat.seatCode)
+                  .join(", ")} vừa được người khác đặt nên đã bỏ khỏi lựa chọn. Vui lòng chọn ghế khác.`,
+              },
+      }));
+    },
+
     setField: (field, value) =>
       set((state) => ({
         values: { ...state.values, [field]: value },
@@ -149,7 +218,10 @@ export const useBookingDetailStore = create<BookingDetailState>()(
       })),
 
     submit: () => {
-      const { tripId, selectedSeats, values, agree } = get();
+      const { tripId, selectedSeats, values, agree, submitting } = get();
+
+      /* Chặn bấm đúp khi đang giữ ghế */
+      if (submitting) return { ok: true };
 
       const issues: NonNullable<DetailStatus["issues"]> = [];
       const invalid: BookingDetailState["invalid"] = {};
@@ -218,13 +290,14 @@ export const useBookingDetailStore = create<BookingDetailState>()(
 
       set({ invalid: {}, status: null, submitting: true });
 
+      const requestTripId = tripId as string;
       const contactName = values.name.trim();
       const contactPhone = values.phone.trim();
 
       void (async () => {
         try {
           const booking = await createBookingAPI({
-            tripId: tripId as string,
+            tripId: requestTripId,
             contactName,
             contactPhone,
             contactEmail: sessionUser.email,
@@ -237,6 +310,12 @@ export const useBookingDetailStore = create<BookingDetailState>()(
             })),
           });
 
+          /* Người dùng đã chuyển chuyến trong lúc chờ → nhả đơn giữ chỗ vừa tạo */
+          if (get().tripId !== requestTripId) {
+            void cancelBookingAPI(booking.id).catch(() => {});
+            return;
+          }
+
           /* Giữ ghế xong mới mở modal xác nhận; chưa chuyển màn thành công */
           set({
             submitting: false,
@@ -248,6 +327,10 @@ export const useBookingDetailStore = create<BookingDetailState>()(
             },
           });
         } catch (error) {
+          if (get().tripId !== requestTripId) return;
+
+          /* Ghế có thể vừa bị người khác giữ/đặt → tải lại sơ đồ để đồng bộ */
+          invalidateSeats(requestTripId);
           set({
             submitting: false,
             status: { type: "error", message: errorMessage(error) },
@@ -259,7 +342,7 @@ export const useBookingDetailStore = create<BookingDetailState>()(
     },
 
     confirmPending: (onDone) => {
-      const { pendingBookingId, confirming } = get();
+      const { pendingBookingId, confirming, tripId } = get();
       if (!pendingBookingId || confirming) return;
 
       set({ confirming: true, confirmError: null });
@@ -267,15 +350,9 @@ export const useBookingDetailStore = create<BookingDetailState>()(
       void (async () => {
         try {
           const booking = await confirmBookingAPI(pendingBookingId);
-          set({
-            confirming: false,
-            pendingBookingId: null,
-            confirmError: null,
-            status: {
-              type: "success",
-              message: "Đặt vé thành công! Đang chuyển tới vé điện tử...",
-            },
-          });
+          /* Đã đặt xong → xoá sạch state để lần đặt sau bắt đầu từ đầu */
+          invalidateSeats(tripId);
+          get().reset();
           onDone(booking.id);
         } catch (error) {
           set({ confirming: false, confirmError: errorMessage(error) });
@@ -284,30 +361,49 @@ export const useBookingDetailStore = create<BookingDetailState>()(
     },
 
     cancelConfirm: () => {
-      const { pendingBookingId, confirming } = get();
+      const { pendingBookingId, confirming, tripId } = get();
       if (confirming) return;
 
       /* Người dùng không xác nhận → huỷ đơn giữ chỗ để nhả ghế */
       set({ pendingBookingId: null, confirmError: null, status: null });
       if (pendingBookingId) {
-        void cancelBookingAPI(pendingBookingId).catch(() => {});
+        void cancelBookingAPI(pendingBookingId)
+          .catch(() => {})
+          .then(() => invalidateSeats(tripId));
       }
     },
 
     cancelFlow: () => {
-      if (totalTimer) {
-        window.clearTimeout(totalTimer);
-        totalTimer = null;
-      }
-      const { pendingBookingId, confirming } = get();
+      clearTotalTimer();
+      const { pendingBookingId, confirming, tripId } = get();
       if (pendingBookingId && !confirming) {
-        void cancelBookingAPI(pendingBookingId).catch(() => {});
+        void cancelBookingAPI(pendingBookingId)
+          .catch(() => {})
+          .then(() => invalidateSeats(tripId));
       }
       set({
         submitting: false,
         totalLoading: false,
+        invalid: {},
+        status: null,
         confirming: false,
         pendingBookingId: null,
+        confirmError: null,
+      });
+    },
+
+    reset: () => {
+      clearTotalTimer();
+      set({
+        selectedSeats: [],
+        values: { ...INITIAL_VALUES },
+        agree: false,
+        invalid: {},
+        status: null,
+        submitting: false,
+        totalLoading: false,
+        pendingBookingId: null,
+        confirming: false,
         confirmError: null,
       });
     },
