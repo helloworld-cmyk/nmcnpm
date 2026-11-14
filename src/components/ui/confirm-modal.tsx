@@ -21,6 +21,8 @@ const TITLE =
 
 const DESCRIPTION = "mt-2.5 text-[15px] leading-[1.6] text-[var(--slate-600)]";
 
+const ERROR = "mt-2.5 text-[14px] leading-[1.6] font-medium text-[var(--red-600)]";
+
 const ACTIONS = "mt-[22px] flex gap-3 max-[400px]:flex-col";
 
 const CONFIRM_DANGER =
@@ -34,6 +36,10 @@ export type ConfirmModalProps = {
   cancelLabel: string;
   icon?: ReactNode;
   danger?: boolean;
+  /* Khoá hộp thoại trong lúc đang xử lý hành động xác nhận */
+  loading?: boolean;
+  /* Lỗi hiển thị ngay trong hộp thoại, giữ hộp thoại mở để thử lại */
+  error?: string | null;
   onConfirm: () => void;
   onClose: () => void;
 };
@@ -46,6 +52,8 @@ export function ConfirmModal({
   cancelLabel,
   icon,
   danger = false,
+  loading = false,
+  error = null,
   onConfirm,
   onClose,
 }: ConfirmModalProps) {
@@ -64,7 +72,7 @@ export function ConfirmModal({
     document.body.style.overflow = "hidden";
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape" && !loading) onClose();
     };
     document.addEventListener("keydown", onKeyDown);
 
@@ -74,7 +82,7 @@ export function ConfirmModal({
       lastFocusRef.current?.focus();
       lastFocusRef.current = null;
     };
-  }, [open, onClose]);
+  }, [open, onClose, loading]);
 
   if (!open || typeof document === "undefined") return null;
 
@@ -83,7 +91,7 @@ export function ConfirmModal({
       <div
         aria-hidden="true"
         className="absolute inset-0 bg-[var(--navy-950)] opacity-55"
-        onClick={onClose}
+        onClick={loading ? undefined : onClose}
       />
 
       <div
@@ -98,6 +106,7 @@ export function ConfirmModal({
         <button
           aria-label="Đóng hộp thoại"
           className={CLOSE_BTN}
+          disabled={loading}
           type="button"
           onClick={onClose}
         >
@@ -113,16 +122,25 @@ export function ConfirmModal({
           {description}
         </p>
 
+        {error ? (
+          <p className={ERROR} role="alert">
+            {error}
+          </p>
+        ) : null}
+
         <div className={ACTIONS}>
           <button
             className="btn btn-ghost flex-1"
+            disabled={loading}
             type="button"
             onClick={onClose}
           >
             {cancelLabel}
           </button>
           <button
+            aria-busy={loading}
             className={`btn flex-1 ${danger ? CONFIRM_DANGER : "btn-primary"}`}
+            disabled={loading}
             type="button"
             onClick={onConfirm}
           >

@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { cancelBookingAPI } from "@/api/booking/api/cancel-booking";
+import { confirmBookingAPI } from "@/api/booking/api/confirm-booking";
 import { createBookingAPI } from "@/api/booking/api/create-booking";
 import { ApiError } from "@/api/types";
 import { useSessionStore } from "./session-store";
@@ -36,11 +38,19 @@ type BookingDetailState = {
   submitting: boolean;
   /* Nháy mờ khối tổng tiền khi danh sách ghế thay đổi */
   totalLoading: boolean;
+  /* Đơn vừa giữ ghế, chờ người dùng xác nhận trong modal */
+  pendingBookingId: string | null;
+  /* Đang gọi API xác nhận đặt vé */
+  confirming: boolean;
+  /* Lỗi khi xác nhận đặt vé, hiển thị trong modal */
+  confirmError: string | null;
   setTripId: (tripId: string | null) => void;
   toggleSeat: (seat: SelectedSeat) => void;
   setField: (field: DetailField, value: string) => void;
   setAgree: (value: boolean) => void;
-  submit: (onDone: (bookingId: string) => void) => DetailSubmitResult;
+  submit: () => DetailSubmitResult;
+  confirmPending: (onDone: (bookingId: string) => void) => void;
+  cancelConfirm: () => void;
   cancelFlow: () => void;
 };
 
@@ -74,6 +84,9 @@ export const useBookingDetailStore = create<BookingDetailState>()(
     status: null,
     submitting: false,
     totalLoading: false,
+    pendingBookingId: null,
+    confirming: false,
+    confirmError: null,
 
     /* Khi đổi sang chuyến khác thì bỏ ghế đã chọn từ chuyến trước */
     setTripId: (tripId) =>
@@ -135,7 +148,7 @@ export const useBookingDetailStore = create<BookingDetailState>()(
         status: state.status?.type === "error" ? null : state.status,
       })),
 
-    submit: (onDone) => {
+    submit: () => {
       const { tripId, selectedSeats, values, agree } = get();
 
       const issues: NonNullable<DetailStatus["issues"]> = [];
@@ -224,14 +237,16 @@ export const useBookingDetailStore = create<BookingDetailState>()(
             })),
           });
 
+          /* Giữ ghế xong mới mở modal xác nhận; chưa chuyển màn thành công */
           set({
             submitting: false,
+            pendingBookingId: booking.id,
+            confirmError: null,
             status: {
               type: "success",
-              message: "Đặt vé thành công! Đang chuyển tới vé điện tử...",
+              message: "Đã giữ ghế — vui lòng xác nhận để hoàn tất đặt chỗ.",
             },
           });
-          onDone(booking.id);
         } catch (error) {
           set({
             submitting: false,
@@ -243,12 +258,58 @@ export const useBookingDetailStore = create<BookingDetailState>()(
       return { ok: true };
     },
 
+    confirmPending: (onDone) => {
+      const { pendingBookingId, confirming } = get();
+      if (!pendingBookingId || confirming) return;
+
+      set({ confirming: true, confirmError: null });
+
+      void (async () => {
+        try {
+          const booking = await confirmBookingAPI(pendingBookingId);
+          set({
+            confirming: false,
+            pendingBookingId: null,
+            confirmError: null,
+            status: {
+              type: "success",
+              message: "Đặt vé thành công! Đang chuyển tới vé điện tử...",
+            },
+          });
+          onDone(booking.id);
+        } catch (error) {
+          set({ confirming: false, confirmError: errorMessage(error) });
+        }
+      })();
+    },
+
+    cancelConfirm: () => {
+      const { pendingBookingId, confirming } = get();
+      if (confirming) return;
+
+      /* Người dùng không xác nhận → huỷ đơn giữ chỗ để nhả ghế */
+      set({ pendingBookingId: null, confirmError: null, status: null });
+      if (pendingBookingId) {
+        void cancelBookingAPI(pendingBookingId).catch(() => {});
+      }
+    },
+
     cancelFlow: () => {
       if (totalTimer) {
         window.clearTimeout(totalTimer);
         totalTimer = null;
       }
-      set({ submitting: false, totalLoading: false });
+      const { pendingBookingId, confirming } = get();
+      if (pendingBookingId && !confirming) {
+        void cancelBookingAPI(pendingBookingId).catch(() => {});
+      }
+      set({
+        submitting: false,
+        totalLoading: false,
+        confirming: false,
+        pendingBookingId: null,
+        confirmError: null,
+      });
     },
   }),
 );

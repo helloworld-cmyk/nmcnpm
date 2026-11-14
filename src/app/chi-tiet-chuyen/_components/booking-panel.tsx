@@ -13,6 +13,7 @@ import type { DetailField } from "@/global-states/booking-detail-store";
 import { useBookingPanel } from "../_hooks/use-booking-panel";
 import { formatVnd } from "../_utils/format";
 import { PanelHead } from "./panel-head";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { Reveal } from "@/components/ui/reveal";
 
 const STATUS_CLASSES = {
@@ -102,6 +103,11 @@ export function BookingPanel({ pricePerSeat }: BookingPanelProps) {
     seatLine,
     statusRef,
     handleSubmit,
+    confirmOpen,
+    confirming,
+    confirmError,
+    handleConfirm,
+    handleCancelConfirm,
   } = useBookingPanel();
 
   return (
@@ -233,7 +239,7 @@ export function BookingPanel({ pricePerSeat }: BookingPanelProps) {
             aria-busy={submitting}
           >
             <span className="btn-label">
-              {submitting ? "Đang giữ chỗ..." : "Xác nhận đặt chỗ"}
+              {submitting ? "Đang giữ chỗ..." : "Đặt chỗ"}
             </span>
             <IconArrowRight />
           </button>
@@ -242,6 +248,20 @@ export function BookingPanel({ pricePerSeat }: BookingPanelProps) {
             Không cần đặt cọc — giữ chỗ ngay, hủy miễn phí trước 2 giờ.
           </p>
         </form>
+
+        <ConfirmModal
+          cancelLabel="Hủy"
+          confirmLabel={confirming ? "Đang xác nhận..." : "Xác nhận đặt chuyến"}
+          description={`Ghế đã chọn: ${seatLine} · Tổng tạm tính ${formatVnd(
+            selectedSeats.length * pricePerSeat,
+          )}. Bạn có xác nhận đặt chuyến này không?`}
+          error={confirmError}
+          loading={confirming}
+          open={confirmOpen}
+          title="Xác nhận đặt chuyến?"
+          onClose={handleCancelConfirm}
+          onConfirm={handleConfirm}
+        />
     </Reveal>
   );
 }

@@ -23,6 +23,13 @@ export function useBookingPanel() {
   const setAgree = useBookingDetailStore((state) => state.setAgree);
   const submit = useBookingDetailStore((state) => state.submit);
   const cancelFlow = useBookingDetailStore((state) => state.cancelFlow);
+  const pendingBookingId = useBookingDetailStore(
+    (state) => state.pendingBookingId,
+  );
+  const confirming = useBookingDetailStore((state) => state.confirming);
+  const confirmError = useBookingDetailStore((state) => state.confirmError);
+  const confirmPending = useBookingDetailStore((state) => state.confirmPending);
+  const cancelConfirm = useBookingDetailStore((state) => state.cancelConfirm);
   const user = useSessionStore((state) => state.user);
 
   const statusRef = useRef<HTMLDivElement>(null);
@@ -46,9 +53,7 @@ export function useBookingPanel() {
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const result = submit((bookingId) =>
-      router.push(`/dat-cho-thanh-cong?booking=${encodeURIComponent(bookingId)}`),
-    );
+    const result = submit();
 
     if (!result.ok) {
       if (result.needsAuth) {
@@ -61,6 +66,15 @@ export function useBookingPanel() {
       }
       statusRef.current?.focus();
     }
+  };
+
+  /* Đã giữ ghế → xác nhận đặt vé rồi mới chuyển màn thành công */
+  const handleConfirm = () => {
+    confirmPending((bookingId) =>
+      router.replace(
+        `/dat-cho-thanh-cong?booking=${encodeURIComponent(bookingId)}`,
+      ),
+    );
   };
 
   return {
@@ -76,5 +90,10 @@ export function useBookingPanel() {
     seatLine,
     statusRef,
     handleSubmit,
+    confirmOpen: Boolean(pendingBookingId),
+    confirming,
+    confirmError,
+    handleConfirm,
+    handleCancelConfirm: cancelConfirm,
   };
 }

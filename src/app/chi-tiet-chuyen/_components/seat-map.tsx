@@ -16,7 +16,7 @@ import { SteeringWheel } from "./steering-wheel";
 const LEGEND_TONES = {
   free: "[--seat-back:var(--surface)] [--seat-head:var(--slate-200)] [--seat-cushion:var(--slate-200)] [--seat-arm:var(--slate-300)] [--seat-line:var(--slate-300)]",
   picked: "[--seat-back:var(--sky-700)] [--seat-head:var(--sky-800)] [--seat-cushion:var(--sky-600)] [--seat-arm:var(--sky-800)] [--seat-line:var(--sky-800)]",
-  taken: "[--seat-back:var(--slate-200)] [--seat-head:var(--slate-200)] [--seat-cushion:var(--slate-200)] [--seat-arm:var(--slate-200)] [--seat-line:var(--slate-200)]",
+  taken: "[--seat-back:var(--slate-300)] [--seat-head:var(--slate-300)] [--seat-cushion:var(--slate-300)] [--seat-arm:var(--slate-400)] [--seat-line:var(--slate-400)]",
 } as const;
 
 const AISLE =
